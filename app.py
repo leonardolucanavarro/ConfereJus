@@ -1,4 +1,5 @@
 import streamlit as st
+from conferejus.analise import analisar_documento, extrair_texto_arquivo
 
 st.set_page_config(
     page_title="ConfereJus | Auditoria jurídica",
@@ -119,6 +120,18 @@ st.markdown(
         [data-testid="stFileUploader"] button * {
             color: #06182f !important;
         }
+        [data-testid="stLinkButton"] a,
+a[data-testid="stBaseButton-secondaryLink"] {
+    color: #06182f !important;
+    background-color: #ffffff !important;
+    border: 1px solid #b8c3d1 !important;
+    font-weight: 700 !important;
+}
+
+[data-testid="stLinkButton"] a *,
+a[data-testid="stBaseButton-secondaryLink"] * {
+    color: #06182f !important;
+}
      </style>
     """,
     unsafe_allow_html=True,
@@ -233,15 +246,106 @@ criterios = st.multiselect(
 
 if st.button("Iniciar auditoria técnica"):
     if not documento_enviado:
-        st.warning("Envie um arquivo ou cole um texto para iniciar a auditoria.")
-    elif not criterios:
-        st.warning("Selecione pelo menos um critério de revisão.")
-    else:
-        st.success("Documento recebido. A estrutura inicial do fluxo está funcionando.")
-        st.info(
-            "Na próxima etapa, conectaremos esta interface ao mecanismo de análise "
-            "e à base pública de jurisprudências."
+        st.warning(
+            "Envie um arquivo ou cole um texto para iniciar a auditoria."
         )
+    elif not criterios:
+        st.warning(
+            "Selecione pelo menos um critério de revisão."
+        )
+    else:
+        try:
+            with st.spinner(
+                "Lendo o documento e comparando as teses..."
+            ):
+                if modo == "Enviar arquivo":
+                    conteudo_documento = extrair_texto_arquivo(
+                        arquivo
+                    )
+                else:
+                    conteudo_documento = texto.strip()
+
+                if not conteudo_documento:
+                    st.warning(
+                        "Não foi possível extrair texto do documento."
+                    )
+                else:
+                    resultados = analisar_documento(
+                        conteudo_documento,
+                        area,
+                        criterios,
+                    )
+
+                    st.success(
+                        "Auditoria inicial concluída."
+                    )
+
+                    st.markdown(
+                        "### Fontes mais aderentes ao documento"
+                    )
+
+                    for posicao, resultado in enumerate(
+                        resultados,
+                        start=1,
+                    ):
+                        with st.container(border=True):
+                            coluna_texto, coluna_indice = st.columns(
+                                [3, 1]
+                            )
+
+                            coluna_texto.markdown(
+                                f"#### {posicao}. "
+                                f"{resultado['processo']}"
+                            )
+
+                            coluna_texto.caption(
+                                f"{resultado['tribunal']} • "
+                                f"{resultado['orgao_julgador']} • "
+                                f"Julgamento em "
+                                f"{resultado['data_julgamento']}"
+                            )
+
+                            coluna_indice.metric(
+                                "Índice técnico",
+                                f"{resultado['indice_percentual']}%",
+                            )
+
+                            st.markdown(
+                                f"**Tema identificado:** "
+                                f"{resultado['tema']}"
+                            )
+
+                            st.write(
+                                resultado["tese_resumida"]
+                            )
+
+                            st.markdown(
+                                f"**Recomendação preliminar:** "
+                                f"{resultado['recomendacao']}"
+                            )
+
+                            st.caption(
+                                f"Aderência textual: "
+                                f"{resultado['aderencia_percentual']}%. "
+                                "O índice também considera autoridade "
+                                "e atualidade da fonte."
+                            )
+
+                            st.link_button(
+                                "Consultar fonte oficial",
+                                resultado["fonte_url"],
+                            )
+
+                    st.info(
+                        "O ranking é explicável: 75% de aderência "
+                        "textual, 15% de autoridade da fonte e "
+                        "10% de atualidade da decisão."
+                    )
+
+        except Exception as erro:
+            st.error(
+                f"Não foi possível concluir a análise: {erro}"
+            )
 
 st.caption(
     "Protótipo acadêmico. Os resultados deverão ser conferidos por um profissional habilitado."
