@@ -109,6 +109,16 @@ st.markdown(
             color: #68778a !important;
             opacity: 1 !important;
         }
+             [data-testid="stFileUploader"] button {
+            color: #06182f !important;
+            background-color: #ffffff !important;
+            border: 1px solid #b8c3d1 !important;
+            font-weight: 700 !important;
+        }
+
+        [data-testid="stFileUploader"] button * {
+            color: #06182f !important;
+        }
      </style>
     """,
     unsafe_allow_html=True,
