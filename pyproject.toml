@@ -1,7 +1,7 @@
 [project]
 name = "conferejus"
 version = "0.1.0"
-description = "Add your description here"
+description = "Revisão assistida de fundamentos em disputas contratuais empresariais, com comparação por trechos e jurisprudências rastreáveis do STJ."
 readme = "README.md"
 authors = [
     { name = "Leonardo Lucarelli Navarro", email = "leonardolucanavarro@gmail.com" }
