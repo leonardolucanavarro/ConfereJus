@@ -134,7 +134,7 @@ server_metadata_url = "https://accounts.google.com/.well-known/openid-configurat
 
 Os valores acima são marcadores, não credenciais utilizáveis. Não compartilhe o arquivo preenchido, o segredo do cliente ou o segredo dos cookies. Se houver exposição, substitua a credencial e revogue a anterior.
 
-No ambiente configurado, foram testados o login, a saudação, a saída da conta e a permanência do formulário de análise sem autenticação. **O comportamento de uma instalação sem credenciais de autenticação ainda está pendente de teste.** O login opcional para o usuário não significa que esse cenário de instalação já foi validado.
+No ambiente configurado, foram testados o login, a saudação, a saída da conta e a permanência do formulário de análise sem autenticação. **No teste local sem credenciais de autenticação, o formulário e a comparação funcionaram normalmente, com o botão de login oculto. Após restaurar a configuração, o login com Google voltou a funcionar.**
 
 Na publicação, será necessário cadastrar o URI do site público com o caminho `/oauth2callback`, guardar as credenciais nas configurações privadas da hospedagem e conferir a liberação do público externo. Configurar o login local não publica o site.
 
@@ -287,7 +287,6 @@ O arquivo `pyproject.toml` declara as dependências. O arquivo `uv.lock` registr
 - Relatório de análise para download.
 - Entrada de áudio com transcrição editável e confirmação do usuário, com teste de viabilidade na hospedagem.
 - Preferências individuais vinculadas à conta e armazenamento adequado, sem pressupor armazenamento de documentos.
-- Verificação do comportamento da interface em instalações sem configuração de autenticação.
 - Hospedagem pública, configuração do login no endereço público e testes com outras contas e dispositivos.
 - Documentação específica do uso de IA e definição da licença de distribuição.
 - Revisão final das escritas do site e do GitHub, acessibilidade, contraste e apresentação visual.
