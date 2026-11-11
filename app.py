@@ -45,9 +45,23 @@ st.markdown("""
     color: #e8efef !important;
 }
     hr { border-color: #29434c; }
+        [data-testid="stBaseButton-secondary"] {
+        background: #d9e9e3 !important;
+        border-color: #d9e9e3 !important;
+        color: #153e38 !important;
+    }
+
+    [data-testid="stBaseButton-secondary"] * {
+        color: #153e38 !important;
+    }
 </style>
 """, unsafe_allow_html=True)
-
+if st.user.is_logged_in:
+    st.write("Olá,", st.user.get("name", "usuário"))
+    st.button("Sair da conta", on_click=st.logout)
+else:
+    st.button("Entrar com Google", on_click=st.login)
+    st.caption("Você também pode usar a análise sem entrar na conta.")
 logo = Path(__file__).resolve().with_name("logo.png")
 col_logo, col_brand = st.columns([1, 9])
 with col_logo:
