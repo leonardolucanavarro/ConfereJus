@@ -7,8 +7,44 @@ from conferejus.analise import (
     LIMIAR_SIMILARIDADE,
     MINIMO_TERMOS_COMUNS,
     analisar_documento,
+    conferir_referencias,
     extrair_texto_arquivo,
 )
+
+
+def mostrar_referencias(referencias, erro=""):
+    """Exibe conferencia de identificadores sem mistura com o ranking tematico."""
+    st.subheader("Referências citadas no documento")
+    st.caption("Conferência local de identificadores do STJ: REsp e AREsp, com AgInt, AgRg e EDcl opcionais na forma ‘no’. Outras classes, grafias e citações podem não ser reconhecidas. Não há consulta automática aos tribunais.")
+    if erro:
+        st.warning("A conferência de referências não foi concluída: " + erro)
+        return
+    if not referencias:
+        st.info("Nenhuma referência foi reconhecida nos formatos suportados. Isso não comprova que o documento esteja sem citações.")
+        return
+    exatas = sum(r["tipo_correspondencia"] == "identificador_exato" for r in referencias)
+    relacionadas = sum(r["tipo_correspondencia"] == "processo_relacionado" for r in referencias)
+    ocorrencias = sum(r["quantidade"] for r in referencias)
+    st.caption(f"Referências distintas: {len(referencias)} · Ocorrências: {ocorrencias} · Localizadas pelo identificador: {exatas} · Processos relacionados, sem referência exata: {relacionadas} · Não verificadas: {len(referencias) - exatas - relacionadas}.")
+    st.info("Uma referência localizada na base não tem seu conteúdo validado. Uma referência não verificada não deve ser tratada como falsa. Confira o inteiro teor, a transcrição e a relação com o argumento.")
+    for indice, referencia in enumerate(referencias, start=1):
+        with st.expander(f"{indice}. {referencia['identificador']} — {referencia['status']}"):
+            st.write("**Referência identificada no documento:**")
+            st.text(referencia["citacao"])
+            st.write(referencia["explicacao"])
+            for registro in referencia["registros_base"]:
+                st.write("**Registro da base:** " + str(registro["processo"]))
+                if registro.get("tema"):
+                    st.write("**Tema cadastrado:** " + str(registro["tema"]))
+                if registro.get("fonte_url"):
+                    rotulo = "Abrir fonte cadastrada" if referencia["tipo_correspondencia"] == "identificador_exato" else "Abrir fonte do registro relacionado"
+                    st.link_button(rotulo, registro["fonte_url"])
+            st.write("**Ocorrências e contexto no documento:**")
+            for numero, ocorrencia in enumerate(referencia["ocorrencias"], start=1):
+                st.caption(f"Ocorrência {numero} de {referencia['quantidade']}")
+                # Texto do usuario permanece como texto, sem HTML ou Markdown.
+                st.text(ocorrencia["trecho"])
+            st.caption(referencia["aviso"])
 
 
 st.set_page_config(page_title="ConfereJus | Disputas contratuais", layout="wide")
@@ -96,7 +132,7 @@ st.markdown('<p class="intro">Parta do seu documento e delimite a controvérsia.
 with st.expander("Escopo e método desta versão"):
     st.write("O projeto está sendo direcionado a conflitos sobre descumprimento de contratos empresariais: inadimplemento, cláusula penal, perdas e danos, boa-fé e revisão contratual.")
     st.write("O documento é dividido em trechos e comparado aos resumos e termos cadastrados na base do STJ. O mecanismo aproxima algumas expressões equivalentes e exibe o trecho e os termos que motivaram cada seleção. Parte do acervo ainda trata de relações civis ou de consumo: confira seu contexto antes de aplicar uma decisão a uma relação empresarial.")
-    st.write("A questão informada orienta a seleção por regras textuais de assunto e pedido. Os fatos só entram na ordenação quando compartilham ao menos dois termos relevantes com o documento. A posição da parte fica registrada, sem bônus automático para credor ou devedor. Não há pesquisa automática nos tribunais nem validação das citações nesta etapa.")
+    st.write("A questão informada orienta a seleção por regras textuais de assunto e pedido. Os fatos só entram na ordenação quando compartilham ao menos dois termos relevantes com o documento. A posição da parte fica registrada, sem bônus automático para credor ou devedor. Em seção separada, os identificadores de referências reconhecidas são comparados ao cadastro local do STJ. Essa conferência não valida o teor das citações nem consulta os tribunais.")
     st.caption("Use documentos fictícios, públicos ou devidamente anonimizados nos testes. Não envie material confidencial nesta fase.")
 
 principal, lateral = st.columns([1.65, 1], gap="large")
@@ -124,8 +160,9 @@ with lateral:
     st.caption("O assunto é usado quando não há questão específica reconhecida no texto. Fatos com termos presentes no documento podem refinar a ordem. A posição não determina, sozinha, quais fontes favorecem a parte.")
 
 iniciar = st.button("Comparar fundamentos", type="primary")
+st.caption("A revisão também confere os identificadores de referências reconhecidas no documento contra a base local, sem alterar a ordem das sugestões por assunto.")
 
-entrada = (modo, texto, arquivo.getvalue() if arquivo else None, arquivo.name if arquivo else None, tema, posicao, objetivo, contexto)
+entrada = ("referencias-v1", modo, texto, arquivo.getvalue() if arquivo else None, arquivo.name if arquivo else None, tema, posicao, objetivo, contexto)
 if st.session_state.get("entrada_revisada") != entrada:
     st.session_state.pop("revisao", None)
 
@@ -148,7 +185,18 @@ if iniciar:
                         objetivo=objetivo.strip(), assunto=tema,
                         posicao=posicao, fatos=contexto.strip(),
                     )
-                    st.session_state["revisao"] = {"resultados": resultados, "objetivo": objetivo.strip(), "tema": tema, "posicao": posicao, "contexto": contexto.strip()}
+                    referencias = []
+                    erro_referencias = ""
+                    try:
+                        referencias = conferir_referencias(documento)
+                    except ValueError as erro:
+                        # Um limite da conferencia nao apaga a busca por assunto.
+                        erro_referencias = str(erro)
+                    st.session_state["revisao"] = {
+                        "resultados": resultados, "objetivo": objetivo.strip(),
+                        "tema": tema, "posicao": posicao, "contexto": contexto.strip(),
+                        "referencias": referencias, "erro_referencias": erro_referencias,
+                    }
                     st.session_state["entrada_revisada"] = entrada
         except ValueError as erro:
             st.error(str(erro))
@@ -157,6 +205,8 @@ if iniciar:
 
 revisao = st.session_state.get("revisao")
 if revisao:
+    st.divider()
+    mostrar_referencias(revisao["referencias"], revisao["erro_referencias"])
     st.divider()
     st.subheader("Jurisprudências relacionadas ao documento")
     st.write(f"Questão informada: {revisao['objetivo']}")
@@ -208,8 +258,9 @@ if revisao:
         st.write(f"Para uma decisão ser elegível, ao menos um trecho do documento deve ter {MINIMO_TERMOS_COMUNS} termos relevantes em comum com a fonte e similaridade de pelo menos {LIMIAR_SIMILARIDADE:.0%}. Objetivo e fatos não criam sozinhos essa elegibilidade. O sistema retorna até três fontes e não completa a lista à força.")
         st.write("Depois do filtro do documento, regras de expressões identificam questões específicas e excluem fontes sobre questões diferentes quando o foco é reconhecido. A questão informada tem precedência sobre o documento para identificar o foco. O assunto selecionado é utilizado apenas se não houver foco mais específico. Regras incompletas podem deixar de reconhecer sinônimos ou excluir fontes úteis, por isso os resultados precisam de conferência.")
         st.write("A ordem prioriza a coincidência de questão e, para pedidos explícitos de redução ou manutenção de multa, a direção textual do cadastro. Em seguida, usa afinidade textual: 25% para o objetivo e 10% para fatos que compartilhem ao menos dois termos relevantes com o documento, quando preenchidos, e o restante para o melhor trecho do documento. São pesos experimentais, não probabilidades jurídicas. A porcentagem exibida não inclui esses pesos e não é uma nota de qualidade.")
-        st.write("As classificações de direção compatível e contraponto não demonstram apoio ou contrariedade jurídica. Elas reconhecem expressões do pedido e da síntese, sem resolver os fatos ou os requisitos do precedente. A posição da parte não aumenta pontuação. Contexto de origem e limites cadastrados são exibidos para leitura, não como fatos automaticamente verificados no documento. A ferramenta não valida citações nem substitui a leitura da fonte.")
+        st.write("As classificações de direção compatível e contraponto não demonstram apoio ou contrariedade jurídica. Elas reconhecem expressões do pedido e da síntese, sem resolver os fatos ou os requisitos do precedente. A posição da parte não aumenta pontuação. Contexto de origem e limites cadastrados são exibidos para leitura, não como fatos automaticamente verificados no documento. A conferência de referências compara apenas identificadores: não valida transcrições ou conclusões atribuídas à decisão e não substitui a leitura da fonte.")
 
 st.divider()
 st.caption("ConfereJus · Protótipo acadêmico em desenvolvimento · Revisão profissional indispensável.")
+
 

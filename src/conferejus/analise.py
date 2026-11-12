@@ -357,3 +357,130 @@ def analisar_documento(texto, area, criterios, limite=3, *, objetivo="", assunto
         return candidatos[:int(limite)]
     return sorted(candidatos, key=lambda item: (-item["aderencia"], str(item["id"])))[:int(limite)]
 
+
+# Conferencia bibliografica local, independente da recuperacao por assunto.
+# As siglas suportadas nao cobrem todas as classes ou formas de citacao.
+_PADRAO_REFERENCIA = re.compile(
+    r"(?<![\w/])"
+    r"(?P<incidentes>(?:(?:AgInt|AgRg|EDcl)\s+(?:no|nos|na|nas)\s+)*)"
+    r"(?P<classe>AREsp|REsp)\b\s*"
+    r"(?:(?:n\.?\s*[º°o]?\.?|n[uú]mero)\s*)?"
+    r"(?P<numero>\d{1,3}(?:\.\d{3})+|\d+)"
+    r"(?:\s*/\s*(?P<uf>[a-z]{2}))?"
+    r"(?![\w/]|\.\d)",
+    re.IGNORECASE,
+)
+_UFS_REFERENCIAS = set("AC AL AP AM BA CE DF ES GO MA MT MS MG PA PB PR PE PI RJ RN RS RO RR SC SP SE TO".split())
+MAXIMO_REFERENCIAS = 200
+
+
+def _dados_referencia(encontro):
+    """Normaliza somente identificadores; nao corrige numero, UF ou classe."""
+    classes = {"resp": "REsp", "aresp": "AREsp"}
+    incidentes = tuple(
+        {"agint": "AgInt", "agrg": "AgRg", "edcl": "EDcl"}[sigla.lower()]
+        for sigla in re.findall(r"AgInt|AgRg|EDcl", encontro.group("incidentes"), re.IGNORECASE)
+    )
+    classe = classes[encontro.group("classe").lower()]
+    numero = encontro.group("numero").replace(".", "").lstrip("0") or "0"
+    uf = (encontro.group("uf") or "").upper()
+    rotulo = " no ".join((*incidentes, classe)) + " " + numero + ("/" + uf if uf else "")
+    return {
+        "classe": classe, "incidentes": list(incidentes), "numero": numero,
+        "uf": uf, "identificador": rotulo,
+    }
+
+
+def _chave_referencia(referencia):
+    return (tuple(referencia["incidentes"]), referencia["classe"], referencia["numero"], referencia["uf"])
+
+
+def extrair_referencias(texto):
+    """Identifica REsp/AREsp, com AgInt/AgRg/EDcl opcionais, no texto original.
+
+    Nao identifica toda jurisprudencia citada, nao interpreta transcricoes e nao
+    valida a existencia do processo. Posicoes referem-se ao texto recebido.
+    O contexto legado acrescentado apos '\\n\\nQuestão:' e desconsiderado.
+    """
+    if not isinstance(texto, str):
+        raise ValueError("O documento deve conter texto.")
+    if len(texto) > MAXIMO_CARACTERES:
+        raise ValueError("O texto excede 120 mil caracteres. Envie uma secao menor.")
+    documento = texto.partition("\n\nQuestão:")[0]
+    referencias = {}
+    for encontro in _PADRAO_REFERENCIA.finditer(documento):
+        referencia = _dados_referencia(encontro)
+        # Nao tenta aproveitar parte de um numero desproporcional ou truncado.
+        if len(referencia["numero"]) > 10:
+            continue
+        chave = _chave_referencia(referencia)
+        if chave not in referencias:
+            if len(referencias) >= MAXIMO_REFERENCIAS:
+                raise ValueError("Foram identificadas mais de 200 referencias distintas. Envie uma secao menor.")
+            referencias[chave] = {**referencia, "citacao": encontro.group(), "ocorrencias": []}
+        referencias[chave]["ocorrencias"].append({
+            "citacao": encontro.group(), "inicio": encontro.start(), "fim": encontro.end(),
+            "trecho": documento[max(0, encontro.start() - 90):min(len(documento), encontro.end() + 90)],
+        })
+    for referencia in referencias.values():
+        referencia["quantidade"] = len(referencia["ocorrencias"])
+    return list(referencias.values())
+
+
+def conferir_referencias(texto):
+    """Compara identificadores reconhecidos com os registros locais do STJ.
+
+    Nao consulta a internet, nao altera o ranking e nao verifica autenticidade,
+    transcricao, atualidade ou apoio juridico. Ausencia na base nao e falsidade.
+    Incidentes diferentes ou UF ausente nunca recebem correspondencia exata.
+    """
+    referencias = extrair_referencias(texto)
+    if not referencias:
+        return []
+    registros = []
+    for registro in carregar_jurisprudencias().to_dict(orient="records"):
+        if str(registro["tribunal"]).strip().upper() != "STJ":
+            continue
+        processo = str(registro["processo"]).strip()
+        encontro = _PADRAO_REFERENCIA.fullmatch(processo)
+        if encontro:
+            registros.append((_dados_referencia(encontro), registro))
+    aviso = (
+        "Conferência restrita aos identificadores cadastrados na base local do STJ. "
+        "Não confirma existência na fonte oficial, autenticidade, teor da citação, "
+        "atualidade ou apoio ao argumento. Não localizada não significa falsa."
+    )
+    for referencia in referencias:
+        numero_classe = [
+            (dados, registro) for dados, registro in registros
+            if (dados["classe"], dados["numero"]) == (referencia["classe"], referencia["numero"])
+        ]
+        mesma_uf = [(dados, registro) for dados, registro in numero_classe if dados["uf"] == referencia["uf"]]
+        exatas = [registro for dados, registro in mesma_uf if _chave_referencia(dados) == _chave_referencia(referencia)]
+        referencia.update({"status": "Não verificada na base", "tipo_correspondencia": "ausente", "registros_base": [], "aviso": aviso})
+        if not referencia["uf"] or referencia["uf"] not in _UFS_REFERENCIAS:
+            referencia["tipo_correspondencia"] = "incompleta" if not referencia["uf"] else "uf_invalida"
+            referencia["status"] = "Não verificada: referência incompleta" if not referencia["uf"] else "Não verificada: UF não reconhecida"
+            referencia["explicacao"] = "A UF está ausente ou não foi reconhecida. Não foi presumida nem corrigida a partir do cadastro."
+        elif len(exatas) == 1:
+            referencia["tipo_correspondencia"] = "identificador_exato"
+            referencia["status"] = "Referência localizada na base"
+            referencia["registros_base"] = exatas
+            referencia["explicacao"] = "Classe, número, UF e incidentes reconhecidos coincidem com um registro local. Essa coincidência não verifica o conteúdo atribuído à decisão."
+        elif len(exatas) > 1:
+            referencia["tipo_correspondencia"] = "ambigua"
+            referencia["status"] = "Não verificada: cadastro ambíguo"
+            referencia["registros_base"] = exatas
+            referencia["explicacao"] = "Mais de um registro tem o mesmo identificador. Confira a duplicidade antes de concluir a correspondência."
+        elif mesma_uf:
+            referencia["tipo_correspondencia"] = "processo_relacionado"
+            referencia["status"] = "Processo relacionado na base"
+            referencia["registros_base"] = [registro for _, registro in mesma_uf]
+            referencia["explicacao"] = "Classe principal, número e UF coincidem, mas os incidentes (por exemplo, AgInt) são diferentes. Não foi localizada a referência exata citada."
+        else:
+            referencia["explicacao"] = "Não há correspondência para o identificador reconhecido. A base é limitada: não se pode concluir que a referência seja falsa."
+            if numero_classe:
+                referencia["explicacao"] += " Há registro com classe e número iguais, mas UF diferente; ele não foi usado para corrigir a citação."
+    return referencias
+
+
