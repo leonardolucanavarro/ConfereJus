@@ -6,7 +6,7 @@ O ConfereJus é um protótipo acadêmico que ajuda a conferir a relação entre 
 
 O usuário envia um documento ou cola seu conteúdo. O sistema separa o material em trechos, compara cada trecho com os registros da base e apresenta as fontes selecionadas, o trecho relacionado, os termos que motivaram a seleção e o link oficial para conferência.
 
-**Estado atual — 11/11/2026:** aplicativo executável localmente, base de **20 decisões do STJ**, login opcional com Google testado no ambiente local e **32 testes automatizados aprovados**. A hospedagem pública ainda não está concluída. As preferências vinculadas à conta e a entrada por áudio ainda não estão disponíveis.
+**Estado atual — 12/11/2026:** aplicativo executável localmente, base de **20 decisões do STJ**, login opcional com Google testado no ambiente local e **50 testes automatizados aprovados**. A seleção considera o objetivo informado por meio de regras textuais e apresenta explicações, contexto e limites das fontes. A hospedagem pública ainda não está concluída. As preferências vinculadas à conta e a entrada por áudio ainda não estão disponíveis.
 
 Este README descreve as funções implementadas e separa as evoluções planejadas. Os testes aprovados verificam os comportamentos descritos na seção de testes, não a correção jurídica de todas as respostas.
 
@@ -43,7 +43,7 @@ Essas características descrevem a proposta e a implementação do protótipo. N
 - Login opcional com Google, saudação com o nome do usuário e saída da conta, testados localmente.
 - Arquivo de testes automatizados para o mecanismo, a extração e a estrutura da base.
 
-**Os campos de contexto ainda não alteram o ranking.** Eles organizam a revisão e sua apresentação. Nesta versão, somente os trechos do documento determinam a correspondência automática. O preenchimento de contexto jurídico não deve gerar resultados para um documento sem relação com o assunto.
+**O objetivo informado pode alterar a seleção e a ordem dos resultados por meio de regras textuais.** O assunto funciona como alternativa quando não há foco reconhecido no objetivo ou no documento. Os fatos adicionais só refinam a ordenação quando compartilham termos com o documento. A posição da parte é registrada, mas não gera preferência automática por decisões favoráveis. A correspondência inicial continua dependendo dos trechos do documento: o contexto, sozinho, não cria resultados.
 
 O login não é condição para utilizar a análise na interface configurada. Nesta etapa, autenticar-se não cria histórico de revisões, não salva documentos e não implementa preferências persistentes.
 
@@ -196,7 +196,7 @@ A base ativa contém **20 decisões**, com informações conferidas em fontes of
 
 O registro J004, relativo a atraso de imóvel e dano moral, foi retirado da base ativa na revisão de escopo. Os IDs remanescentes não foram renumerados, preservando a rastreabilidade das alterações no Git. Por isso, o último ID é J021, mas o total de decisões é 20.
 
-Cada registro inclui identificação, síntese, palavras-chave e endereço oficial. As colunas `contexto_origem` e `limites_aplicacao` registram cautelas de uso. **Essas duas colunas ainda não aparecem na interface nem participam automaticamente do ranking.** As fontes e os dados completos de cada registro estão em `data/jurisprudencias.csv`.
+Cada registro inclui identificação, síntese, palavras-chave e endereço oficial. As colunas `contexto_origem` e `limites_aplicacao` registram cautelas de uso e aparecem na interface em “Pedido, contexto e alcance da fonte”. Esses dois campos não são usados automaticamente no cálculo ou na ordenação dos resultados. Os dados completos de cada registro estão em `data/jurisprudencias.csv`.
 
 As sínteses são textos previamente cadastrados, não conclusões produzidas a partir do documento do usuário. Os links podem levar a informativos oficiais, PDFs com várias notas, pesquisa de jurisprudência ou inteiro teor de acórdãos. Nos documentos coletivos, utilize o número do processo para localizar a nota correspondente. O aplicativo não atualiza o acervo automaticamente nem garante que um entendimento permaneça atual.
 
@@ -205,13 +205,13 @@ As sínteses são textos previamente cadastrados, não conclusões produzidas a 
 Na raiz do repositório, após instalar as dependências, execute:
 
 ```powershell
-uv run python test_conferejus.py
+uv run python -m unittest test_conferejus test_contexto -v
 ```
 
 A execução local de **11/11/2026** terminou com:
 
 ```text
-Ran 32 tests
+Ran 50 tests
 OK
 ```
 
@@ -222,6 +222,8 @@ O tempo de execução pode variar. A suíte usa `unittest`, incluído no Python,
 | Mecanismo isolado | 18 | Recuperação com acervo fictício, ausência de correspondência, separação de contexto, trecho preservado, filtros, ordenação, limites, normalização e ausência de bônus por data ou autoridade. |
 | Arquivos e validação | 9 | TXT UTF-8 e Latin-1, DOCX com tabela, PDF vazio, formato não aceito, limites de tamanho e texto, coluna ausente e identificador duplicado em bases de teste. |
 | Base real | 5 | Alinhamento e preenchimento de colunas, pelo menos 20 registros e IDs esperados, ausência de processo duplicado, datas válidas, domínios oficiais, recuperação de exemplos sintéticos e texto fora do escopo. |
+| Objetivo e contexto | 18 | Foco temático, ordenação conforme o objetivo, classificação textual de compatibilidade e contraponto, uso condicionado dos fatos adicionais e ausência de resultados criados apenas pelo contexto. |
+| **Total** | **50** | Testes automatizados do mecanismo, dos arquivos, da base e das regras de contexto. |
 
 A verificação dos domínios não abre os links nem comprova sua disponibilidade ou o conteúdo da página. Os exemplos de recuperação são sintéticos e próximos do vocabulário cadastrado. Preservar uma negação também não significa interpretar sua consequência jurídica.
 
@@ -271,6 +273,8 @@ O arquivo `pyproject.toml` declara as dependências. O arquivo `uv.lock` registr
 | `src/conferejus/analise.py` | Extração, carregamento da base, segmentação e comparação. |
 | `data/jurisprudencias.csv` | Acervo ativo de jurisprudências. |
 | `test_conferejus.py` | Suíte de 32 testes automatizados. |
+| `test_conferejus.py` | Suíte original de 32 testes automatizados. |
+| `test_contexto.py` | 18 testes adicionais de seleção por objetivo e contexto. |
 | `logo.png` | Identidade visual utilizada pela interface. |
 | `pyproject.toml` | Metadados, dependências e configuração do projeto. |
 | `uv.lock` | Versões resolvidas das dependências. |
@@ -282,7 +286,7 @@ O arquivo `pyproject.toml` declara as dependências. O arquivo `uv.lock` registr
 ## Evoluções planejadas — ainda não disponíveis
 
 - Revisão contínua e eventual ampliação do acervo especializado, com avaliação de pertinência em amostra mais diversa.
-- Uso efetivo do contexto e de regras específicas de aplicação na análise, sujeito a implementação e validação.
+- Ampliar e validar as regras textuais de uso do objetivo e do contexto, avaliando suas limitações em casos mais variados, sem tratá-las como interpretação jurídica automática.
 - Conferência limitada de referências citadas contra o cadastro. Referência não encontrada deverá ser tratada como não verificada, não como falsa.
 - Relatório de análise para download.
 - Entrada de áudio com transcrição editável e confirmação do usuário, com teste de viabilidade na hospedagem.
