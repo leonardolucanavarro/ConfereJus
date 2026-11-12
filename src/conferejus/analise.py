@@ -1,4 +1,4 @@
-"""Recuperacao por trechos e regras lexicais; nao realiza julgamento juridico."""
+"""Recuperacao por trechos e contexto explicito; nao realiza julgamento juridico."""
 
 import io
 import re
@@ -40,6 +40,160 @@ EQUIVALENCIAS = (
     (r"\bprejuizos\b", "prejuizo"),
     (r"\bmultas\b", "multa"),
 )
+
+# Regras de organizacao textual. Nao sao uma ontologia nem filtros de validade.
+# Nenhum processo ou ID recebe tratamento especial.
+ROTULOS_QUESTOES = {
+    "multa_reducao": "Redução ou manutenção da multa",
+    "multa_solidariedade": "Multa e solidariedade",
+    "multa_cumulacao": "Cumulação de multa e indenização",
+    "multa_alcance": "Hipóteses de incidência da multa",
+    "limite_responsabilidade": "Limitação de responsabilidade",
+    "mitigacao": "Mitigação do prejuízo",
+    "supressio": "Supressio e confiança legítima",
+    "reconvencao": "Revisão ou rescisão por reconvenção",
+    "revisao": "Revisão e desequilíbrio contratual",
+    "adimplemento_substancial": "Adimplemento substancial",
+    "resilicao": "Resilição e encerramento da relação",
+    "excecao": "Exceção do contrato não cumprido",
+    "representacao": "Indenização na representação comercial",
+    "lucros": "Prova de lucros cessantes",
+    "cobranca": "Prova documental para cobrança",
+}
+
+ASSUNTO_QUESTOES = {
+    "Cláusula penal e multas": {"multa_reducao", "multa_solidariedade", "multa_cumulacao", "multa_alcance", "limite_responsabilidade"},
+    "Boa-fé e comportamento das partes": {"mitigacao", "supressio", "resilicao", "excecao"},
+    "Revisão contratual": {"revisao", "reconvencao"},
+    "Perdas e danos": {"lucros", "mitigacao", "multa_cumulacao", "limite_responsabilidade", "representacao"},
+    "Inadimplemento e resolução contratual": {"adimplemento_substancial", "resilicao", "excecao", "representacao", "reconvencao"},
+}
+
+
+def identificar_questoes(texto):
+    """Reconhece expressoes declaradas; nao infere o direito aplicavel."""
+    t = normalizar_texto(texto)
+    regras = {
+        "multa_solidariedade": bool(re.search(r"solidari", t) and re.search(r"multa|penal", t)),
+        "multa_cumulacao": bool(re.search(r"cumul|duplicidade", t) and re.search(r"multa|penal", t)),
+        "multa_alcance": bool(re.search(r"interpretacao restritiva|hipoteses? de incidencia|hipotese expressamente prevista", t)),
+        "limite_responsabilidade": bool(re.search(r"limita\w* (?:contratual de )?responsabilidade|clausula limitativa", t)),
+        "mitigacao": bool(re.search(r"mitiga|mitigar|agravamento do (?:proprio )?prejuizo", t)),
+        "supressio": bool(re.search(r"supressio|confianca legitima|inercia qualificada|cobranca retroativa", t)),
+        "reconvencao": bool(re.search(r"reconvencao|reconvencional|contestacao", t)),
+        "adimplemento_substancial": bool(re.search(r"(?:adimplemento|cumprimento) substancial", t)),
+        "excecao": bool(re.search(r"excecao (?:do |de )?contrato nao cumprido|exceptio|ordem das prestacoes", t)),
+        "representacao": bool(re.search(r"representacao comercial|representante comercial", t)),
+        "lucros": bool(re.search(r"lucros cessantes|lucro hipotetico", t)),
+        "cobranca": bool(re.search(r"monitoria|prova documental|memoria de calculo", t)),
+    }
+    regras["multa_reducao"] = bool(
+        re.search(r"multa|penal", t)
+        and re.search(r"reducao|reduzir|reduzid|excessiv|coercitiv|manter|manutencao", t)
+        and not regras["multa_solidariedade"] and not regras["multa_cumulacao"]
+        and not regras["limite_responsabilidade"]
+    )
+    regras["revisao"] = bool(re.search(r"revisao|imprevisao|onerosidade|desequilibrio", t)
+                              and not regras["reconvencao"] and not regras["multa_reducao"])
+    regras["resilicao"] = bool(re.search(r"resilicao|denuncia imotivada|rescisao unilateral|rompimento abrupto", t)
+                                and not regras["representacao"])
+    return {chave for chave, presente in regras.items() if presente}
+
+
+def _sentido_pedido_multa(objetivo):
+    """Apenas o pedido informado, nunca a posicao credora/devedora, define a busca."""
+    t = normalizar_texto(objetivo)
+    if not re.search(r"multa|penal", t):
+        return "indefinido"
+    contra_reducao = r"(?:nao|afastar|afastando|evitar|impedir|incabivel)\b(?:\W+\w+){0,4}\W+(?:reducao|reduzir)\b"
+    contra_manutencao = r"(?:nao|afastar|afastando|evitar|impedir)\b(?:\W+\w+){0,4}\W+(?:manter|manutencao)\b"
+    manter = bool(re.search(contra_reducao, t))
+    reduzir = bool(re.search(contra_manutencao, t))
+    restante = re.sub(contra_reducao, " ", t)
+    restante = re.sub(contra_manutencao, " ", restante)
+    reduzir |= bool(re.search(r"\breduzir\b|\breducao\b", restante))
+    manter |= bool(re.search(r"\bmanter\b|\bmanutencao\b|\bpreservar\b", restante))
+    if reduzir == manter:
+        return "indefinido"
+    return "reduzir" if reduzir else "manter"
+
+
+def _sentido_cadastro_multa(registro):
+    t = normalizar_texto(str(registro["tema"]) + ". " + str(registro["tese_resumida"]))
+    manter = bool(re.search(r"\b(?:mantida|preservada)\b.{0,45}\bmulta\b|\bmanutencao\b.{0,30}\bmulta\b", t))
+    reduzir = bool(re.search(r"reducao de oficio|\bdeve(?:ra)?\b.{0,35}\breduzir\b", t))
+    if manter == reduzir:
+        return "indefinido"
+    return "reduzir" if reduzir else "manter"
+
+
+def _ordenar_com_contexto(candidatos, documento, objetivo, assunto, posicao, fatos, vetorizador, matriz_base, registros):
+    """Reordena somente fontes que passaram no filtro do documento original."""
+    questoes_documento = identificar_questoes(documento)
+    questoes_objetivo = identificar_questoes(objetivo)
+    foco = questoes_objetivo or questoes_documento
+    origem_foco = "questão informada" if questoes_objetivo else "documento"
+    # Fatos refinam a correspondencia somente quando ha vocabulario no documento.
+    fatos_ancorados = fatos if len(_termos(fatos) & _termos(documento)) >= MINIMO_TERMOS_COMUNS else ""
+    if not foco and fatos_ancorados:
+        foco = identificar_questoes(fatos_ancorados)
+        origem_foco = "fatos informados com termos presentes no documento"
+    if not foco:
+        foco = ASSUNTO_QUESTOES.get(assunto, set())
+        origem_foco = "assunto selecionado, sem questão específica reconhecida no texto"
+    pedido = _sentido_pedido_multa(objetivo)
+    consultas = vetorizador.transform([objetivo, fatos_ancorados])
+    afinidades = cosine_similarity(consultas, matriz_base)
+    # Reordenacao textual experimental, separada da similaridade exibida.
+    peso_objetivo = 0.25 if objetivo.strip() else 0.0
+    peso_fatos = 0.10 if fatos_ancorados else 0.0
+    indice_colunas = {str(r["id"]): i for i, r in enumerate(registros)}
+    for registro in candidatos:
+        coluna = indice_colunas[str(registro["id"])]
+        questoes_fonte = identificar_questoes(registro["tema"])
+        if not questoes_fonte:
+            questoes_fonte = identificar_questoes(registro["tese_resumida"])
+        comuns = foco & questoes_fonte
+        registro["questoes_foco"] = [ROTULOS_QUESTOES[q] for q in sorted(foco)]
+        registro["questoes_fonte"] = [ROTULOS_QUESTOES[q] for q in sorted(questoes_fonte)]
+        registro["origem_foco"] = origem_foco
+        registro["prioridade_assunto"] = 2 if comuns else (0 if foco and questoes_fonte else 1)
+        registro["prioridade_sentido"] = 1
+        registro["relacao_pedido"] = "Sentido do pedido não classificado"
+        registro["explicacao_pedido"] = "Não foi reconhecida uma relação de sentido pelas regras disponíveis. Confira a síntese e seus requisitos."
+        if "multa_reducao" in comuns and pedido != "indefinido":
+            sentido_fonte = _sentido_cadastro_multa(registro)
+            if sentido_fonte != "indefinido":
+                concorda = pedido == sentido_fonte
+                registro["prioridade_sentido"] = 2 if concorda else 0
+                registro["relacao_pedido"] = "Direção textual compatível" if concorda else "Contraponto a conferir"
+                acao = "redução" if sentido_fonte == "reduzir" else "manutenção"
+                registro["explicacao_pedido"] = (
+                    f"O pedido informado busca {('redução' if pedido == 'reduzir' else 'manutenção')} da multa. "
+                    f"O cadastro descreve {acao} da penalidade em seu próprio contexto. "
+                    "Essa comparação é uma regra textual, não uma conclusão sobre o caso. "
+                    "Confira os requisitos e os limites da fonte: a classificação não verifica se eles estão presentes no seu documento."
+                )
+        registro["afinidade_objetivo"] = round(float(afinidades[0, coluna]) * 100, 1)
+        registro["afinidade_fatos"] = round(float(afinidades[1, coluna]) * 100, 1)
+        registro["pontuacao_ordenacao"] = (
+            registro["aderencia"] * (1 - peso_objetivo - peso_fatos)
+            + float(afinidades[0, coluna]) * peso_objetivo
+            + float(afinidades[1, coluna]) * peso_fatos
+        )
+        registro["assunto_informado"] = assunto
+        registro["posicao_informada"] = posicao
+        registro["fatos_usados_na_ordenacao"] = bool(fatos_ancorados)
+        registro["explicacao_foco"] = (
+            "Questões em comum com o foco: " + ", ".join(ROTULOS_QUESTOES[q] for q in sorted(comuns)) + "."
+            if comuns else "Não foi reconhecida coincidência específica com o foco pelas regras disponíveis."
+        )
+        registro["metodo"] = "Filtro lexical no documento; ordenação experimental por questão específica, sentido textual do pedido e afinidade com objetivo e fatos ancorados. Sem bônus por data, autoridade ou posição da parte."
+    # Questao diferente nao ocupa o lugar de uma fonte sobre o foco reconhecido.
+    # Fontes sem coincidencia especifica nao sao apresentadas como pertinentes.
+    if foco:
+        candidatos = [r for r in candidatos if r["prioridade_assunto"] == 2]
+    return sorted(candidatos, key=lambda r: (-r["prioridade_assunto"], -r["prioridade_sentido"], -r["pontuacao_ordenacao"], str(r["id"])))
 
 
 def normalizar_texto(texto):
@@ -125,17 +279,23 @@ def _segmentar(texto):
     return trechos
 
 
-def analisar_documento(texto, area, criterios, limite=3):
+def analisar_documento(texto, area, criterios, limite=3, *, objetivo="", assunto="", posicao="", fatos=""):
     """Seleciona fontes por proximidade lexical a trechos, nao por apoio a tese.
 
     Area e criterios sao preservados na assinatura para compatibilidade.
     Nao sao acrescentados ao documento nem considerados filtros juridicos.
+    Os novos campos nomeados reordenam apenas correspondencias do documento.
     O limiar e experimental e devera ser validado com uma amostra maior.
     """
     if not isinstance(texto, str) or not texto.strip() or limite <= 0:
         return []
     if len(texto) > MAXIMO_CARACTERES:
         raise ValueError("O texto excede 120 mil caracteres. Envie uma secao menor.")
+    for campo in (objetivo, assunto, posicao, fatos):
+        if not isinstance(campo, str):
+            raise ValueError("Os campos de contexto devem conter texto.")
+        if len(campo) > MAXIMO_CARACTERES:
+            raise ValueError("Um campo de contexto excede 120 mil caracteres.")
     documento, contexto = _separar_documento_contexto(texto)
     trechos = _segmentar(documento)
     if not trechos:
@@ -191,4 +351,9 @@ def analisar_documento(texto, area, criterios, limite=3):
             "recomendacao": "Conferir pertinencia no caso concreto",
         })
         candidatos.append(registro)
+    if any((objetivo.strip(), assunto.strip(), posicao.strip(), fatos.strip())):
+        registros = base.to_dict(orient="records")
+        candidatos = _ordenar_com_contexto(candidatos, documento, objetivo, assunto, posicao, fatos, vetorizador, matriz_base, registros)
+        return candidatos[:int(limite)]
     return sorted(candidatos, key=lambda item: (-item["aderencia"], str(item["id"])))[:int(limite)]
+
