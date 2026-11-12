@@ -6,7 +6,8 @@ O ConfereJus é um protótipo acadêmico que ajuda a conferir a relação entre 
 
 O usuário envia um documento ou cola seu conteúdo. O sistema separa o material em trechos, compara cada trecho com os registros da base e apresenta as fontes selecionadas, o trecho relacionado, os termos que motivaram a seleção e o link oficial para conferência.
 
-**Estado atual — 12/11/2026:** aplicativo executável localmente, base de **20 decisões do STJ**, login opcional com Google testado no ambiente local e **50 testes automatizados aprovados**. A seleção considera o objetivo informado por meio de regras textuais e apresenta explicações, contexto e limites das fontes. A hospedagem pública ainda não está concluída. As preferências vinculadas à conta e a entrada por áudio ainda não estão disponíveis.
+**Estado atual — 12/11/2026:** aplicativo executável localmente, base de **20 decisões do STJ**, login opcional com Google testado no ambiente local e **80 testes automatizados aprovados**. A seleção considera o objetivo informado por meio de regras textuais e apresenta explicações, contexto e limites das fontes. A hospedagem pública ainda não está concluída. As preferências vinculadas à conta e a entrada por áudio ainda não estão disponíveis.
+A conferência local de referências citadas está disponível e compara os identificadores reconhecidos com a base cadastrada do STJ. Distingue referência localizada, processo relacionado e referência não verificada, inclusive por falta de UF. Não consulta os tribunais nem valida o conteúdo atribuído às decisões.
 
 Este README descreve as funções implementadas e separa as evoluções planejadas. Os testes aprovados verificam os comportamentos descritos na seção de testes, não a correção jurídica de todas as respostas.
 
@@ -205,13 +206,13 @@ As sínteses são textos previamente cadastrados, não conclusões produzidas a 
 Na raiz do repositório, após instalar as dependências, execute:
 
 ```powershell
-uv run python -m unittest test_conferejus test_contexto -v
+uv run python -m unittest test_conferejus test_contexto test_referencias -v
 ```
 
 A execução local de **11/11/2026** terminou com:
 
 ```text
-Ran 50 tests
+Ran 80 tests
 OK
 ```
 
@@ -223,7 +224,8 @@ O tempo de execução pode variar. A suíte usa `unittest`, incluído no Python,
 | Arquivos e validação | 9 | TXT UTF-8 e Latin-1, DOCX com tabela, PDF vazio, formato não aceito, limites de tamanho e texto, coluna ausente e identificador duplicado em bases de teste. |
 | Base real | 5 | Alinhamento e preenchimento de colunas, pelo menos 20 registros e IDs esperados, ausência de processo duplicado, datas válidas, domínios oficiais, recuperação de exemplos sintéticos e texto fora do escopo. |
 | Objetivo e contexto | 18 | Foco temático, ordenação conforme o objetivo, classificação textual de compatibilidade e contraponto, uso condicionado dos fatos adicionais e ausência de resultados criados apenas pelo contexto. |
-| **Total** | **50** | Testes automatizados do mecanismo, dos arquivos, da base e das regras de contexto. |
+| Conferência de referências | 30 | Identificação e comparação de referências com a base local, distinguindo correspondência exata, processo relacionado, referência incompleta e não localizada. |
+| **Total** | **80** | Testes automatizados do mecanismo, dos arquivos, da base, das regras de contexto e da conferência de referências. |
 
 A verificação dos domínios não abre os links nem comprova sua disponibilidade ou o conteúdo da página. Os exemplos de recuperação são sintéticos e próximos do vocabulário cadastrado. Preservar uma negação também não significa interpretar sua consequência jurídica.
 
@@ -275,6 +277,7 @@ O arquivo `pyproject.toml` declara as dependências. O arquivo `uv.lock` registr
 | `test_conferejus.py` | Suíte de 32 testes automatizados. |
 | `test_conferejus.py` | Suíte original de 32 testes automatizados. |
 | `test_contexto.py` | 18 testes adicionais de seleção por objetivo e contexto. |
+| `test_referencias.py` | 30 testes da conferência local de referências citadas no documento. |
 | `logo.png` | Identidade visual utilizada pela interface. |
 | `pyproject.toml` | Metadados, dependências e configuração do projeto. |
 | `uv.lock` | Versões resolvidas das dependências. |
@@ -287,7 +290,7 @@ O arquivo `pyproject.toml` declara as dependências. O arquivo `uv.lock` registr
 
 - Revisão contínua e eventual ampliação do acervo especializado, com avaliação de pertinência em amostra mais diversa.
 - Ampliar e validar as regras textuais de uso do objetivo e do contexto, avaliando suas limitações em casos mais variados, sem tratá-las como interpretação jurídica automática.
-- Conferência limitada de referências citadas contra o cadastro. Referência não encontrada deverá ser tratada como não verificada, não como falsa.
+- Ampliar os formatos reconhecidos na conferência local de referências, hoje restrita a REsp e AREsp, com AgInt, AgRg e EDcl nas formas suportadas. A ausência de correspondência na base não significa falsidade.
 - Relatório de análise para download.
 - Entrada de áudio com transcrição editável e confirmação do usuário, com teste de viabilidade na hospedagem.
 - Preferências individuais vinculadas à conta e armazenamento adequado, sem pressupor armazenamento de documentos.
