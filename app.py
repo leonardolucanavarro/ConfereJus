@@ -1,7 +1,9 @@
-from datetime import date
+from datetime import date, datetime, timezone
+from hashlib import sha256
 from pathlib import Path
 
 import streamlit as st
+from conferejus.relatorio import gerar_relatorio_docx
 
 from conferejus.analise import (
     LIMIAR_SIMILARIDADE,
@@ -101,6 +103,14 @@ st.markdown("""
 [data-testid="stExpander"] summary * {
     color: #e8fefe !important;
 }
+[data-testid="stDownloadButton"] button {
+    background: #d9e9e3 !important;
+    border-color: #d9e9e3 !important;
+    color: #153e38 !important;
+}
+[data-testid="stDownloadButton"] button * {
+    color: #153e38 !important;
+}
 </style>
 """, unsafe_allow_html=True)
 if "is_logged_in" in st.user:
@@ -162,7 +172,7 @@ with lateral:
 iniciar = st.button("Comparar fundamentos", type="primary")
 st.caption("A revisão também confere os identificadores de referências reconhecidas no documento contra a base local, sem alterar a ordem das sugestões por assunto.")
 
-entrada = ("referencias-v1", modo, texto, arquivo.getvalue() if arquivo else None, arquivo.name if arquivo else None, tema, posicao, objetivo, contexto)
+entrada = ("relatorio-v1", modo, texto, arquivo.getvalue() if arquivo else None, arquivo.name if arquivo else None, tema, posicao, objetivo, contexto)
 if st.session_state.get("entrada_revisada") != entrada:
     st.session_state.pop("revisao", None)
 
@@ -192,11 +202,21 @@ if iniciar:
                     except ValueError as erro:
                         # Um limite da conferencia nao apaga a busca por assunto.
                         erro_referencias = str(erro)
-                    st.session_state["revisao"] = {
+                    revisao_atual = {
                         "resultados": resultados, "objetivo": objetivo.strip(),
                         "tema": tema, "posicao": posicao, "contexto": contexto.strip(),
                         "referencias": referencias, "erro_referencias": erro_referencias,
+                        "gerado_em": datetime.now(timezone.utc).isoformat(timespec="seconds"),
+                        "origem_documento": arquivo.name if arquivo else "Texto colado",
+                        "caracteres_documento": len(documento),
+                        "documento_sha256": sha256(documento.encode("utf-8")).hexdigest(),
                     }
+                    try:
+                        revisao_atual["relatorio_docx"] = gerar_relatorio_docx(revisao_atual)
+                    except Exception:
+                        # Uma falha de exportacao nao apaga os resultados da revisao.
+                        revisao_atual["erro_relatorio"] = "Não foi possível gerar o relatório em Word. Os resultados continuam disponíveis abaixo. Confira o módulo de relatório e execute os testes no terminal."
+                    st.session_state["revisao"] = revisao_atual
                     st.session_state["entrada_revisada"] = entrada
         except ValueError as erro:
             st.error(str(erro))
@@ -205,6 +225,18 @@ if iniciar:
 
 revisao = st.session_state.get("revisao")
 if revisao:
+    st.divider()
+    st.subheader("Relatório da revisão")
+    if revisao.get("relatorio_docx"):
+        st.download_button(
+            "Baixar relatório em Word", data=revisao["relatorio_docx"],
+            file_name="conferejus_revisao.docx",
+            mime="application/vnd.openxmlformats-officedocument.wordprocessingml.document",
+            key="baixar_relatorio_docx",
+        )
+        st.caption("O arquivo registra esta revisão, com objetivo, contexto, referências, fontes e links. Contém trechos do material enviado: revise antes de compartilhar. A conta Google não é incluída. Este não é o relatório acadêmico de uso de IA.")
+    elif revisao.get("erro_relatorio"):
+        st.warning(revisao["erro_relatorio"])
     st.divider()
     mostrar_referencias(revisao["referencias"], revisao["erro_referencias"])
     st.divider()
@@ -262,5 +294,6 @@ if revisao:
 
 st.divider()
 st.caption("ConfereJus · Protótipo acadêmico em desenvolvimento · Revisão profissional indispensável.")
+
 
 
