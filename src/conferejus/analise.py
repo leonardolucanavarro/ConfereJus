@@ -211,6 +211,33 @@ def _termos(texto):
     }
 
 
+def _pdf_texto_fragmentado(texto):
+    """Heuristica conservadora: muitas linhas contendo so uma ou duas palavras."""
+    linhas = [linha.strip() for linha in texto.splitlines() if linha.strip()]
+    return len(linhas) >= 10 and sum(len(linha.split()) <= 2 for linha in linhas) / len(linhas) >= 0.85
+
+
+def _extrair_texto_pagina_pdf(pagina):
+    """Tenta layout apenas na extracao fragmentada e sem mudar os tokens.
+
+    Mantem a extracao padrao se o modo alternativo nao estiver disponivel,
+    continuar fragmentado ou modificar palavras, pontuacao, negacoes ou ordem.
+    Nao usa OCR e nao resolve todos os layouts de PDF.
+    """
+    padrao = pagina.extract_text() or ""
+    if not _pdf_texto_fragmentado(padrao):
+        return padrao
+    try:
+        layout = pagina.extract_text(extraction_mode="layout") or ""
+    except (TypeError, ValueError, NotImplementedError):
+        return padrao
+    if layout.split() == padrao.split() and not _pdf_texto_fragmentado(layout):
+        # Remove espacos de alinhamento e quebras de linha visuais dentro dos
+        # paragrafos, preservando os separadores de paragrafos e de paginas.
+        return "\n\n".join(" ".join(bloco.split()) for bloco in re.split(r"\n\s*\n", layout) if bloco.strip())
+    return padrao
+
+
 def extrair_texto_arquivo(arquivo):
     """Le PDF textual, DOCX (incluindo tabelas) e TXT, sem OCR."""
     extensao = Path(arquivo.name).suffix.lower()
@@ -221,7 +248,7 @@ def extrair_texto_arquivo(arquivo):
         leitor = PdfReader(io.BytesIO(conteudo))
         if len(leitor.pages) > 200:
             raise ValueError("Utilize um PDF de ate 200 paginas nesta versao.")
-        texto = "\n\n".join(pagina.extract_text() or "" for pagina in leitor.pages)
+        texto = "\n\n".join(_extrair_texto_pagina_pdf(pagina) for pagina in leitor.pages)
     elif extensao == ".docx":
         documento = Document(io.BytesIO(conteudo))
         blocos = [p.text for p in documento.paragraphs]
@@ -482,5 +509,6 @@ def conferir_referencias(texto):
             if numero_classe:
                 referencia["explicacao"] += " Há registro com classe e número iguais, mas UF diferente; ele não foi usado para corrigir a citação."
     return referencias
+
 
 
