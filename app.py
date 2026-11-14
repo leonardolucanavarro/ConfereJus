@@ -7,10 +7,13 @@ from conferejus.relatorio import gerar_relatorio_docx
 
 from conferejus.analise import (
     LIMIAR_SIMILARIDADE,
+    MAXIMO_CARACTERES,
     MINIMO_TERMOS_COMUNS,
+    OPCOES_ASSUNTOS,
     analisar_documento,
     conferir_referencias,
     extrair_texto_arquivo,
+    preparar_documento,
 )
 
 
@@ -143,6 +146,7 @@ with st.expander("Escopo e método desta versão"):
     st.write("O projeto está sendo direcionado a conflitos sobre descumprimento de contratos empresariais: inadimplemento, cláusula penal, perdas e danos, boa-fé e revisão contratual.")
     st.write("O documento é dividido em trechos e comparado aos resumos e termos cadastrados na base do STJ. O mecanismo aproxima algumas expressões equivalentes e exibe o trecho e os termos que motivaram cada seleção. Parte do acervo ainda trata de relações civis ou de consumo: confira seu contexto antes de aplicar uma decisão a uma relação empresarial.")
     st.write("A questão informada orienta a seleção por regras textuais de assunto e pedido. Os fatos só entram na ordenação quando compartilham ao menos dois termos relevantes com o documento. A posição da parte fica registrada, sem bônus automático para credor ou devedor. Em seção separada, os identificadores de referências reconhecidas são comparados ao cadastro local do STJ. Essa conferência não valida o teor das citações nem consulta os tribunais.")
+    st.write("Antes da análise, o texto lido fica disponível para conferência. O assunto é sugerido por expressões do documento, sem usar o objetivo ou os fatos adicionais. A sugestão pode ser corrigida manualmente e pode ficar sem definição quando faltarem indicadores ou houver vários temas. Não representa interpretação jurídica ou confiança estatística.")
     st.caption("Use documentos fictícios, públicos ou devidamente anonimizados nos testes. Não envie material confidencial nesta fase.")
 
 principal, lateral = st.columns([1.65, 1], gap="large")
@@ -156,7 +160,47 @@ with principal:
         arquivo = st.file_uploader("Selecione o documento", type=["pdf", "docx", "txt"])
         st.caption("PDF com texto selecionável, Word ou TXT. Até 20 MB e 120 mil caracteres de texto; PDFs de até 200 páginas. Sem OCR para documentos escaneados.")
     else:
-        texto = st.text_area("Trecho ou documento", height=290, placeholder="Insira o texto que deseja comparar com a base de decisões.")
+        texto = st.text_area("Trecho ou documento", height=290, max_chars=MAXIMO_CARACTERES, placeholder="Insira o texto que deseja comparar com a base de decisões.")
+
+    # Somente esta sessao guarda a leitura. Nada e colocado em cache global.
+    if arquivo is not None:
+        chave_documento = ("leitura-v1", modo, arquivo.name, sha256(arquivo.getvalue()).hexdigest())
+        tem_entrada = True
+    else:
+        chave_documento = ("leitura-v1", modo, sha256(texto.encode("utf-8")).hexdigest())
+        tem_entrada = bool(texto.strip())
+    if st.session_state.get("chave_documento") != chave_documento:
+        st.session_state["chave_documento"] = chave_documento
+        st.session_state["preparacao_documento"] = None
+        st.session_state.pop("revisao", None)
+        st.session_state.pop("entrada_revisada", None)
+        # Reset antes de criar os widgets, somente quando muda o documento.
+        st.session_state.pop("modo_assunto", None)
+        st.session_state.pop("assunto_manual", None)
+        if tem_entrada:
+            try:
+                with st.spinner("Lendo o documento e preparando a prévia..."):
+                    st.session_state["preparacao_documento"] = preparar_documento(
+                        arquivo=arquivo, texto=texto if arquivo is None else "",
+                    )
+            except ValueError as erro:
+                st.session_state["preparacao_documento"] = {"erro": str(erro)}
+            except Exception:
+                st.session_state["preparacao_documento"] = {"erro": "Não foi possível ler o arquivo. Ele pode estar corrompido ou não corresponder ao formato indicado. Envie outro arquivo legível ou cole o texto."}
+    preparacao = st.session_state.get("preparacao_documento")
+    documento_pronto = bool(preparacao and not preparacao.get("erro") and preparacao.get("texto"))
+    if preparacao and preparacao.get("erro"):
+        st.error(preparacao["erro"])
+    elif preparacao and not documento_pronto:
+        st.warning("Não foi encontrado texto extraível. Se o PDF for escaneado, utilize uma versão com texto ou cole a transcrição.")
+    elif documento_pronto:
+        st.caption(f"Texto disponível para revisão: {preparacao['caracteres']:,} caracteres.".replace(",", "."))
+        with st.expander("Conferir o texto lido"):
+            st.text(preparacao["previa"])
+            if preparacao["previa_truncada"]:
+                st.caption("Esta prévia mostra somente os primeiros 4.000 caracteres. A análise utiliza o texto completo lido, respeitando o limite de 120 mil caracteres.")
+            else:
+                st.caption("Esta prévia contém todo o texto lido. Confira a ordem, os acentos e eventuais trechos ausentes antes de analisar.")
 
     st.markdown('<div class="section-label">02 / QUESTÃO EM DISCUSSÃO</div>', unsafe_allow_html=True)
     objetivo = st.text_area("Qual argumento ou pedido você quer examinar?", height=110, placeholder="Ex.: Quero examinar os fundamentos para reduzir a multa diante do cumprimento parcial do contrato.")
@@ -164,7 +208,34 @@ with principal:
 
 with lateral:
     st.markdown('<div class="section-label">CONTEXTO DA REVISÃO</div>', unsafe_allow_html=True)
-    tema = st.selectbox("Assunto predominante", ["Inadimplemento e resolução contratual", "Cláusula penal e multas", "Perdas e danos", "Boa-fé e comportamento das partes", "Revisão contratual", "Mais de um assunto / não sei"])
+    modo_assunto = "Usar sugestão do documento"
+    tema = OPCOES_ASSUNTOS[-1]
+    if documento_pronto:
+        sugestao = preparacao["sugestao"]
+        st.write("**Assunto sugerido:** " + sugestao["assunto"])
+        st.caption(sugestao["explicacao"])
+        modo_assunto = st.radio(
+            "Como definir o assunto?", ["Usar sugestão do documento", "Escolher manualmente"],
+            key="modo_assunto",
+        )
+        if modo_assunto == "Escolher manualmente":
+            tema = st.selectbox(
+                "Assunto predominante", OPCOES_ASSUNTOS,
+                index=OPCOES_ASSUNTOS.index(sugestao["assunto"]), key="assunto_manual",
+            )
+        else:
+            tema = sugestao["assunto"]
+        with st.expander("Por que este assunto foi sugerido?"):
+            st.write(sugestao["aviso"])
+            if sugestao["assuntos_detectados"]:
+                st.write("Assuntos com indicadores: " + ", ".join(sugestao["assuntos_detectados"]) + ".")
+            for evidencia in sugestao["evidencias"]:
+                st.caption(evidencia["assunto"])
+                st.text(evidencia["expressao"])
+                st.text(evidencia["trecho"])
+            st.caption("São contados indicadores distintos. Repetições da mesma expressão não aumentam o peso. Com vários assuntos, só há sugestão predominante se o líder tiver pelo menos o dobro dos indicadores do segundo. Não é uma porcentagem de confiança.")
+    else:
+        st.caption("Envie um documento ou cole texto para receber uma sugestão de assunto e conferir a leitura.")
     posicao = st.selectbox("Posição da parte representada", ["Credora da obrigação discutida", "Devedora da obrigação discutida", "Obrigações recíprocas / ambas", "Ainda não definida"])
     contexto = st.text_area("Fatos relevantes (opcional)", height=140, placeholder="Qual obrigação foi descumprida? Houve cumprimento parcial? O que a outra parte alega?")
     st.caption("O assunto é usado quando não há questão específica reconhecida no texto. Fatos com termos presentes no documento podem refinar a ordem. A posição não determina, sozinha, quais fontes favorecem a parte.")
@@ -172,19 +243,21 @@ with lateral:
 iniciar = st.button("Comparar fundamentos", type="primary")
 st.caption("A revisão também confere os identificadores de referências reconhecidas no documento contra a base local, sem alterar a ordem das sugestões por assunto.")
 
-entrada = ("relatorio-v1", modo, texto, arquivo.getvalue() if arquivo else None, arquivo.name if arquivo else None, tema, posicao, objetivo, contexto)
+entrada = ("assunto-v1", chave_documento, modo_assunto, tema, posicao, objetivo, contexto)
 if st.session_state.get("entrada_revisada") != entrada:
     st.session_state.pop("revisao", None)
 
 if iniciar:
     if not (arquivo is not None if modo == "Enviar arquivo" else texto.strip()):
         st.warning("Envie um documento ou cole um texto para continuar.")
+    elif not documento_pronto:
+        st.warning("Confira o aviso de leitura acima antes de analisar. Nenhum resultado foi gerado para este material.")
     elif not objetivo.strip():
         st.warning("Descreva o argumento ou pedido que deseja examinar.")
     else:
         try:
-            with st.spinner("Extraindo o texto e consultando a base selecionada..."):
-                documento = extrair_texto_arquivo(arquivo) if arquivo else texto.strip()
+            with st.spinner("Consultando a base selecionada..."):
+                documento = preparacao["texto"]
                 if not documento.strip():
                     st.warning("Não foi encontrado texto extraível. Se o PDF for escaneado, utilize uma versão com texto ou cole a transcrição.")
                 else:
@@ -206,6 +279,8 @@ if iniciar:
                         "resultados": resultados, "objetivo": objetivo.strip(),
                         "tema": tema, "posicao": posicao, "contexto": contexto.strip(),
                         "referencias": referencias, "erro_referencias": erro_referencias,
+                        "origem_assunto": modo_assunto,
+                        "assunto_sugerido": preparacao["sugestao"]["assunto"],
                         "gerado_em": datetime.now(timezone.utc).isoformat(timespec="seconds"),
                         "origem_documento": arquivo.name if arquivo else "Texto colado",
                         "caracteres_documento": len(documento),
@@ -243,6 +318,7 @@ if revisao:
     st.subheader("Jurisprudências relacionadas ao documento")
     st.write(f"Questão informada: {revisao['objetivo']}")
     st.caption(f"{revisao['tema']} · {revisao['posicao']}")
+    st.caption("Definição do assunto: " + revisao.get("origem_assunto", "Não registrada") + ".")
     if revisao.get("contexto"):
         with st.expander("Contexto informado"):
             st.write(revisao["contexto"])
@@ -294,6 +370,4 @@ if revisao:
 
 st.divider()
 st.caption("ConfereJus · Protótipo acadêmico em desenvolvimento · Revisão profissional indispensável.")
-
-
 

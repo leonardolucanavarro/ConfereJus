@@ -3,6 +3,7 @@
 import io
 import re
 import unicodedata
+from hashlib import sha256
 from pathlib import Path
 
 import pandas as pd
@@ -17,6 +18,127 @@ LIMIAR_SIMILARIDADE = 0.12
 MINIMO_TERMOS_COMUNS = 2
 MAXIMO_CARACTERES = 120_000
 MAXIMO_TRECHOS = 400
+MAXIMO_PREVIA = 4_000
+
+OPCOES_ASSUNTOS = (
+    "Inadimplemento e resolução contratual", "Cláusula penal e multas", "Perdas e danos",
+    "Boa-fé e comportamento das partes", "Revisão contratual", "Mais de um assunto / não sei",
+)
+
+# Indicadores textuais explicitos, nao classes juridicas inferidas por IA.
+# Expressoes genericas como 'contrato' e 'direito' nao sao indicadores.
+_INDICADORES_ASSUNTOS = {
+    "Inadimplemento e resolução contratual": (
+        r"\binadimplemento\b", r"\bdescumprimento\s+contratual\b",
+        r"\bresolu[cç][aã]o\s+(?:contratual|do\s+contrato)\b",
+        r"\brescisao\s+(?:contratual|do\s+contrato|unilateral)\b", r"\bresilicao\b",
+        r"\bdenuncia\s+imotivada\b", r"\brompimento\s+abrupto\b",
+        r"\badimplemento\s+substancial\b", r"\bexcecao\s+do\s+contrato\s+nao\s+cumprido\b", r"\bexceptio\b",
+    ),
+    "Cláusula penal e multas": (
+        r"\bclausulas?\s+(?:penal|penais)\b", r"\bmultas?\s+contratua(?:l|is)\b",
+        r"\bmultas?\s+compensatorias?\b", r"\bmultas?\s+moratorias?\b",
+        r"\bpenalidades?\s+contratua(?:l|is)\b", r"\bclausulas?\s+limitativas?\s+de\s+responsabilidade\b",
+        r"\blimitacao\s+(?:contratual\s+de|de)\s+responsabilidade\b",
+    ),
+    "Perdas e danos": (
+        r"\bperdas\s+e\s+danos\b", r"\blucros\s+cessantes\b", r"\bdanos\s+emergentes\b",
+        r"\bindenizacao\s+contratual\b", r"\bindenizacao\s+por\s+(?:inadimplemento|descumprimento)\b",
+        r"\breparacao\s+dos?\s+prejuizos\b",
+    ),
+    "Boa-fé e comportamento das partes": (
+        r"\bboa[\s\-‐‑–]+fe(?:\s+objetiva)?\b", r"\bsupressio\b", r"\bconfianca\s+legitima\b",
+        r"\bduty\s+to\s+mitigate(?:\s+the\s+loss)?\b", r"\bmitiga(?:cao|r)\s+(?:do|o)\s+prejuizo\b",
+        r"\bagravamento\s+do\s+(?:proprio\s+)?prejuizo\b", r"\bcomportamento\s+contraditorio\b", r"\bvenire\b",
+    ),
+    "Revisão contratual": (
+        r"\brevisao\s+(?:contratual|do\s+contrato|de\s+aluguel)\b", r"\bteoria\s+da\s+imprevisao\b",
+        r"\bonerosidade\s+excessiva\b", r"\bdesequilibrio\s+contratual\b", r"\bacao\s+revisional\b",
+    ),
+}
+
+
+def _normalizar_assunto_com_posicoes(texto):
+    caracteres, posicoes = [], []
+    for indice, caractere in enumerate(texto):
+        for simples in unicodedata.normalize("NFKD", caractere.casefold()):
+            if not unicodedata.combining(simples):
+                caracteres.append(simples)
+                posicoes.append(indice)
+    return "".join(caracteres), posicoes
+
+
+def sugerir_assunto(texto):
+    """Sugere apenas pelo documento, sem objetivo, fatos, conta ou base.
+
+    Conta indicadores distintos; repetir a mesma expressao nao aumenta o peso.
+    Com varios assuntos, exige lider unico com pelo menos o dobro dos
+    indicadores do segundo; senao conserva 'Mais de um assunto / nao sei'.
+    Sao regras experimentais e incompletas, nao confianca ou conclusao juridica.
+    """
+    if not isinstance(texto, str):
+        raise ValueError("O documento deve conter texto.")
+    if len(texto) > MAXIMO_CARACTERES:
+        raise ValueError("O texto excede 120 mil caracteres. Envie uma secao menor.")
+    documento = texto.partition("\n\nQuestão:")[0]
+    normalizado, posicoes = _normalizar_assunto_com_posicoes(documento)
+    evidencias, contagens = [], {}
+    for assunto, padroes in _INDICADORES_ASSUNTOS.items():
+        reconhecidos = set()
+        for padrao in padroes:
+            for encontro in re.finditer(padrao, normalizado):
+                expressao = " ".join(encontro.group().split())
+                if expressao in reconhecidos:
+                    continue
+                reconhecidos.add(expressao)
+                inicio, fim = posicoes[encontro.start()], posicoes[encontro.end() - 1] + 1
+                while fim < len(documento) and unicodedata.combining(documento[fim]):
+                    fim += 1
+                evidencias.append({
+                    "assunto": assunto, "expressao": documento[inicio:fim],
+                    "inicio": inicio, "fim": fim,
+                    "trecho": documento[max(0, inicio - 90):min(len(documento), fim + 90)],
+                })
+        contagens[assunto] = len(reconhecidos)
+    detectados = sorted(
+        (a for a in _INDICADORES_ASSUNTOS if contagens[a]),
+        key=lambda a: (-contagens[a], OPCOES_ASSUNTOS.index(a)),
+    )
+    sugestao, situacao = OPCOES_ASSUNTOS[-1], "nao_identificado"
+    if detectados:
+        lider = detectados[0]
+        if len(detectados) == 1 or contagens[lider] >= 2 * contagens[detectados[1]]:
+            sugestao, situacao = lider, "sugerido"
+    if situacao == "sugerido":
+        explicacao = f"Sugestão baseada em {contagens[sugestao]} indicador(es) textual(is) distinto(s) do documento. Confira e corrija se necessário."
+    elif detectados:
+        situacao = "multiplos"
+        explicacao = "Há indicadores de mais de um assunto, sem predominância clara pelas regras atuais. Você pode continuar sem definição ou escolher manualmente."
+    else:
+        explicacao = "Não foi reconhecido um indicador específico pelas regras atuais. Você pode continuar sem definição ou escolher manualmente."
+    return {
+        "assunto": sugestao, "situacao": situacao, "assuntos_detectados": detectados,
+        "indicadores_por_assunto": contagens, "evidencias": evidencias,
+        "explicacao": explicacao,
+        "aviso": "A sugestão usa expressões do documento, não interpreta o caso nem classifica o sentido do pedido. Não é uma medida de confiança. Regras incompletas podem deixar de reconhecer temas ou dar destaque a menções secundárias.",
+    }
+
+
+def preparar_documento(*, arquivo=None, texto=""):
+    """Prepara leitura e previa, sem consultar fontes nem executar a analise."""
+    if not isinstance(texto, str):
+        raise ValueError("O documento deve conter texto.")
+    if arquivo is not None and texto.strip():
+        raise ValueError("Envie um arquivo ou cole texto, não os dois simultaneamente.")
+    if arquivo is None and len(texto) > MAXIMO_CARACTERES:
+        raise ValueError("O texto excede 120 mil caracteres. Envie uma secao menor.")
+    documento = extrair_texto_arquivo(arquivo) if arquivo is not None else texto.strip()
+    return {
+        "texto": documento, "caracteres": len(documento),
+        "previa": documento[:MAXIMO_PREVIA], "previa_truncada": len(documento) > MAXIMO_PREVIA,
+        "documento_sha256": sha256(documento.encode("utf-8")).hexdigest(),
+        "sugestao": sugerir_assunto(documento),
+    }
 
 # Lista local e explicita: nao exige baixar modelos ou pacotes adicionais.
 # Negacoes como 'nao' e 'sem' NAO sao removidas.
@@ -509,6 +631,7 @@ def conferir_referencias(texto):
             if numero_classe:
                 referencia["explicacao"] += " Há registro com classe e número iguais, mas UF diferente; ele não foi usado para corrigir a citação."
     return referencias
+
 
 
 
