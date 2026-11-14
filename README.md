@@ -4,11 +4,13 @@
 
 O ConfereJus é um protótipo acadêmico que ajuda a conferir a relação entre trechos de um documento e decisões judiciais de uma base selecionada. O projeto tem foco em conflitos sobre descumprimento de contratos empresariais: boa-fé, comportamento das partes, cláusula penal, obrigações pecuniárias, revisão, extinção contratual e questões processuais relacionadas.
 
-O usuário envia um documento ou cola seu conteúdo. O sistema separa o material em trechos, compara cada trecho com os registros da base e apresenta as fontes selecionadas, o trecho relacionado, os termos que motivaram a seleção e o link oficial para conferência.
+O usuário envia um documento ou cola seu conteúdo. Antes da comparação, pode conferir uma prévia do texto lido e aceitar ou corrigir o assunto sugerido. O sistema separa o material em trechos, compara cada trecho com os registros da base e apresenta as fontes selecionadas, o trecho relacionado, os termos que motivaram a seleção e o link oficial para conferência.
 
-**Estado atual — 12/11/2026:** aplicativo executável localmente, base de **20 decisões do STJ**, login opcional com Google testado no ambiente local e **100 testes automatizados aprovados**. A seleção considera o objetivo informado por meio de regras textuais e apresenta explicações, contexto e limites das fontes. A hospedagem pública ainda não está concluída. As preferências vinculadas à conta e a entrada por áudio ainda não estão disponíveis.
-O relatório da revisão pode ser baixado em Word (.docx), com objetivo, contexto, referências conferidas, fontes sugeridas, trechos, limites e links. O arquivo mantém a ordem dos resultados exibidos e não inclui dados da conta Google. Pode conter informações sensíveis do documento enviado: revise antes de compartilhar. Esse arquivo não se confunde com o relatório acadêmico de uso de IA.
-A conferência local de referências citadas está disponível e compara os identificadores reconhecidos com a base cadastrada do STJ. Distingue referência localizada, processo relacionado e referência não verificada, inclusive por falta de UF. Não consulta os tribunais nem valida o conteúdo atribuído às decisões.
+**Estado atual — 14/11/2026:** aplicativo executável localmente, base de **20 decisões do STJ**, login opcional com Google testado no ambiente local e **150 testes automatizados aprovados**. Estão disponíveis a prévia do texto lido, a sugestão editável de assunto, a seleção orientada pelo objetivo por regras textuais, a conferência local de referências e o relatório da revisão em Word. A hospedagem pública ainda não está concluída. As preferências vinculadas à conta e a entrada por áudio ainda não estão disponíveis.
+
+O relatório da revisão pode ser baixado em Word (.docx), com objetivo, contexto, referências conferidas, fontes sugeridas, trechos, limites e links. O arquivo mantém a ordem dos resultados exibidos e registra o assunto efetivamente utilizado, inclusive quando escolhido manualmente. Não inclui dados da conta Google. Pode conter informações sensíveis do documento enviado: revise antes de compartilhar. Esse arquivo não se confunde com o relatório acadêmico de uso de IA.
+
+A conferência local de referências citadas compara os identificadores reconhecidos com a base cadastrada do STJ. Distingue referência localizada, processo relacionado e referência não verificada, inclusive por falta de UF. Não consulta os tribunais nem valida o conteúdo atribuído às decisões.
 
 Este README descreve as funções implementadas e separa as evoluções planejadas. Os testes aprovados verificam os comportamentos descritos na seção de testes, não a correção jurídica de todas as respostas.
 
@@ -32,34 +34,41 @@ Essas características descrevem a proposta e a implementação do protótipo. N
 
 ## Funcionalidades disponíveis
 
-- Envio de PDF com texto extraível, DOCX ou TXT.
-- Inserção direta de texto na interface.
+- Envio de PDF com texto extraível, DOCX ou TXT, ou inserção direta de texto.
 - Extração de parágrafos e tabelas de arquivos DOCX.
+- Tratamento conservador de determinados PDFs cuja extração fragmenta o texto em linhas muito curtas, preservando a sequência das palavras. Não inclui OCR nem garante a leitura correta de todo PDF.
+- Prévia do texto lido antes da comparação, com contagem de caracteres. A prévia exibe até 4.000 caracteres; a análise utiliza o texto completo extraído, dentro dos limites de processamento.
+- Sugestão de assunto por expressões do próprio documento, com indicadores e trechos explicativos, sem usar o objetivo ou os fatos adicionais para gerar essa sugestão.
+- Escolha manual do assunto, preservada ao alterar o objetivo ou outros campos do mesmo documento. A troca do documento reinicia essa escolha e calcula uma nova sugestão.
 - Registro da questão a examinar, do assunto, da posição da parte e de fatos adicionais.
-- Segmentação do documento e comparação textual por trecho.
-- Normalização de maiúsculas, acentos e algumas expressões explicitamente cadastradas, como “cláusula penal” e “multa contratual”.
-- Ordenação de até três decisões que atendam ao filtro mínimo.
-- Exibição da similaridade textual, síntese cadastrada, trecho relacionado, termos compartilhados e link oficial.
+- Segmentação e comparação textual por trecho, com normalização de maiúsculas, acentos e algumas expressões explicitamente cadastradas.
+- Seleção de até três decisões elegíveis, com similaridade textual, síntese cadastrada, trecho relacionado, termos compartilhados, contexto, limites e link oficial.
+- Conferência local dos identificadores de referências reconhecidas no documento, separada da seleção por assunto.
 - Mensagem específica quando nenhum registro da base atende aos critérios mínimos.
-- Remoção dos resultados anteriores quando as entradas são alteradas, exigindo nova comparação.
-- Login opcional com Google, saudação com o nome do usuário e saída da conta, testados localmente.
-- Arquivo de testes automatizados para o mecanismo, a extração e a estrutura da base.
+- Remoção dos resultados e do relatório anteriores quando as entradas da revisão são alteradas, exigindo nova comparação.
+- Download do relatório da revisão em Word.
+- Login opcional com Google, saudação e saída da conta, testados localmente.
+- Suíte automatizada do mecanismo, dos arquivos, da base, do contexto, das referências, do relatório, da leitura de PDF e da sugestão de assunto.
 
 **O objetivo informado pode alterar a seleção e a ordem dos resultados por meio de regras textuais.** O assunto funciona como alternativa quando não há foco reconhecido no objetivo ou no documento. Os fatos adicionais só refinam a ordenação quando compartilham termos com o documento. A posição da parte é registrada, mas não gera preferência automática por decisões favoráveis. A correspondência inicial continua dependendo dos trechos do documento: o contexto, sozinho, não cria resultados.
 
-O login não é condição para utilizar a análise na interface configurada. Nesta etapa, autenticar-se não cria histórico de revisões, não salva documentos e não implementa preferências persistentes.
+O login não é condição para utilizar a análise na interface configurada. Nesta etapa, autenticar-se não cria histórico de revisões, não salva documentos em um perfil e não implementa preferências persistentes.
 
 ## Como usar
 
 1. Abra o aplicativo. Você pode utilizar a análise sem entrar na conta ou escolher **Entrar com Google**, quando o login estiver configurado.
 2. Escolha **Enviar arquivo** ou **Colar texto** e insira o material que deseja examinar.
-3. Preencha **Qual argumento ou pedido você quer examinar?** Esse campo é obrigatório na interface atual.
-4. Selecione o assunto predominante e a posição da parte representada. Informe fatos adicionais se forem úteis à sua conferência.
-5. Clique em **Comparar fundamentos**.
-6. Examine as fontes exibidas, o trecho relacionado e a seção **Por que esta decisão foi selecionada?**
-7. Abra a fonte oficial e confira fatos, fundamento, alcance e pertinência da decisão ao seu caso.
+3. Abra **Conferir o texto lido**. Confira a ordem, os acentos e eventuais trechos ausentes. Em documentos longos, a prévia mostra somente o início, não uma validação de toda a extração.
+4. Confira o **Assunto sugerido** e, se necessário, a explicação em **Por que este assunto foi sugerido?** Mantenha **Usar sugestão do documento** ou selecione **Escolher manualmente** para corrigir a categoria.
+5. Preencha **Qual argumento ou pedido você quer examinar?** Esse campo é obrigatório na interface atual. Informe a posição da parte e, se útil, fatos adicionais.
+6. Clique em **Comparar fundamentos**.
+7. Examine separadamente as **Referências citadas no documento** e as **Jurisprudências relacionadas ao documento**. Confira os trechos e as explicações de cada resultado.
+8. Abra as fontes oficiais e confira fatos, fundamento, alcance e pertinência das decisões ao seu caso.
+9. Se desejar, clique em **Baixar relatório em Word** e revise o arquivo antes de compartilhar.
 
-Alterar os campos não executa automaticamente uma nova análise: clique novamente no botão. Para sair do perfil autenticado, utilize **Sair da conta**. Isso encerra o login no aplicativo, não necessariamente a sessão da conta Google no navegador.
+A leitura e a sugestão são preparadas antes da comparação. Alterar os campos não executa automaticamente uma nova análise: clique novamente no botão. Alterar o documento limpa os resultados anteriores e reinicia a definição do assunto; alterar somente o objetivo não apaga a escolha manual do assunto.
+
+Para sair do perfil autenticado, utilize **Sair da conta**. Isso encerra o login no aplicativo, não necessariamente a sessão da conta Google no navegador.
 
 ### Exemplo de teste
 
@@ -71,9 +80,9 @@ Questão informada:
 
 > Conferir os fundamentos sobre o dever de mitigar o prejuízo.
 
-Selecione **Boa-fé e comportamento das partes**. Com a base atual, espera-se encontrar o REsp 758.518/PR como uma fonte relacionada. A correspondência neste exemplo não comprova desempenho geral nem determina a solução jurídica de um caso concreto.
+Confira a sugestão **Boa-fé e comportamento das partes** ou escolha essa categoria manualmente. Com a base atual, espera-se encontrar o REsp 758.518/PR como uma fonte relacionada. A correspondência neste exemplo não comprova desempenho geral nem determina a solução jurídica de um caso concreto.
 
-Para conferir a ausência de resultados, utilize um texto fora do tema, como “O telescópio fotografou estrelas e galáxias distantes”. A base não deve devolver decisões apenas porque os campos de contexto contêm termos jurídicos.
+Para conferir a ausência de resultados, utilize um texto fora do tema, como “O telescópio fotografou estrelas e galáxias distantes”. A sugestão deve ficar sem categoria específica, e a base não deve devolver decisões apenas porque os campos de contexto contêm termos jurídicos.
 
 ## Instalação e execução local
 
@@ -99,9 +108,9 @@ uv run streamlit run app.py --server.port 8501
 
 Se você já tem o repositório no computador, não precisa cloná-lo novamente: abra o terminal na pasta `ConfereJus` e execute os dois últimos comandos.
 
-Abra o endereço informado em **Local URL**, normalmente `http://localhost:8501`. A porta 8501 é explicitamente utilizada para corresponder à configuração local de login. Se estiver ocupada, encerre a instância anterior ou configure outra porta, ajustando também os endereços de retorno do login.
+Abra o endereço informado em **Local URL**, normalmente `http://localhost:8501`. A porta 8501 é explicitamente utilizada para corresponder à configuração local de login. Se estiver ocupada, confira primeiro se o aplicativo já está acessível nesse endereço. Para reiniciar uma instância sua, utilize **Ctrl+C** no terminal que a executa. Não encerre processos desconhecidos nem altere a porta sem ajustar os endereços de retorno do login.
 
-Mantenha o processo em execução durante o uso. Para encerrá-lo, clique no terminal e pressione **Ctrl+C**. Para abrir novamente, execute o comando do Streamlit na pasta do projeto.
+Mantenha o processo em execução durante o uso. Para abrir novamente, execute o comando do Streamlit na pasta do projeto.
 
 **O endereço localhost representa apenas a execução local.** Ele não é o link público a ser compartilhado. O endereço público será incluído aqui quando a hospedagem estiver concluída e testada.
 
@@ -136,7 +145,7 @@ server_metadata_url = "https://accounts.google.com/.well-known/openid-configurat
 
 Os valores acima são marcadores, não credenciais utilizáveis. Não compartilhe o arquivo preenchido, o segredo do cliente ou o segredo dos cookies. Se houver exposição, substitua a credencial e revogue a anterior.
 
-No ambiente configurado, foram testados o login, a saudação, a saída da conta e a permanência do formulário de análise sem autenticação. **No teste local sem credenciais de autenticação, o formulário e a comparação funcionaram normalmente, com o botão de login oculto. Após restaurar a configuração, o login com Google voltou a funcionar.**
+No ambiente configurado, foram testados o login, a saudação, a saída da conta e a permanência do formulário de análise sem autenticação. **No teste local sem credenciais de autenticação, o formulário e a comparação funcionaram normalmente, com o botão de login oculto. Após restaurar a configuração, o login com Google voltou a funcionar.** Esses testes anteriores não substituem uma nova conferência da autenticação após alterações na interface ou na hospedagem.
 
 Na publicação, será necessário cadastrar o URI do site público com o caminho `/oauth2callback`, guardar as credenciais nas configurações privadas da hospedagem e conferir a liberação do público externo. Configurar o login local não publica o site.
 
@@ -148,30 +157,37 @@ Na publicação, será necessário cadastrar o URI do site público com o caminh
 | `app.py` não encontrado | Confirme que o terminal está na pasta `ConfereJus`, não na pasta Downloads ou em outro projeto. |
 | Base não encontrada | Confira a existência de `data/jurisprudencias.csv` e a estrutura de pastas do repositório. |
 | Falha de importação | Execute `uv sync --locked` e utilize `uv run` para executar o projeto no ambiente correto. |
-| Porta 8501 ocupada | Confira se outra instância do Streamlit continua em execução. Não altere a porta sem ajustar a configuração do login. |
+| Porta 8501 ocupada | Confira se o aplicativo já está aberto em `http://localhost:8501`. Não altere a porta sem ajustar a configuração do login. |
 | Erro de redirecionamento no login | Confira se o endereço cadastrado no Google coincide com `redirect_uri`, incluindo protocolo, porta e `/oauth2callback`. |
 | Conta recusada no login | Confira o público e os usuários de teste autorizados no Google Auth Platform. |
 | PDF sem texto extraível | Utilize um PDF textual ou uma transcrição. A leitura de imagens por OCR não está implementada. |
+| Prévia ilegível ou incompleta | Confira o arquivo original; tente outra exportação textual ou cole uma transcrição conferida. A prévia não garante extração correta de todas as páginas. |
+| Arquivo inválido ou corrompido | Confira se o conteúdo corresponde à extensão e envie um arquivo legível. Apenas renomear a extensão não converte o formato. |
+| Assunto incorreto ou indefinido | Confira os indicadores e utilize a escolha manual. A sugestão usa regras textuais incompletas. |
 | Nenhum resultado | O acervo pode não conter correspondência suficiente. Isso não demonstra inexistência de jurisprudência sobre o assunto. |
 | Erro ao abrir fonte oficial | Confira a conexão e a disponibilidade do STJ. Os links dependem de serviço externo. |
 
 ## Funcionamento da análise
 
-1. **Extração:** o sistema obtém o texto do arquivo ou utiliza o conteúdo colado.
-2. **Segmentação:** separa frases e parágrafos. Unidades longas são divididas em janelas de até 100 palavras, com sobreposição de 20 palavras.
-3. **Normalização:** reduz variações de escrita e aplica uma lista local de aproximações terminológicas. Palavras frequentes são desconsideradas na comparação. Negações, como “não” e “sem”, são preservadas, mas isso não equivale à compreensão de seu efeito jurídico.
-4. **Representação:** TF-IDF transforma os textos em vetores de termos e combinações de até duas palavras. O vocabulário é ajustado à base cadastrada.
-5. **Comparação:** a similaridade do cosseno mede a proximidade entre cada trecho e o tema, a síntese e as palavras-chave de cada fonte.
-6. **Filtro:** ao menos um trecho deve compartilhar dois termos relevantes com a fonte e alcançar similaridade mínima de 0,12. Os parâmetros são experimentais e precisam de avaliação com amostra maior.
-7. **Seleção:** para cada decisão, utiliza-se o melhor trecho elegível. As decisões são ordenadas por essa similaridade e o retorno é limitado a três fontes.
+1. **Extração e prévia:** o sistema obtém o texto do arquivo ou utiliza o conteúdo colado. Mostra até 4.000 caracteres para conferência e conserva o texto completo lido para a comparação, dentro dos limites.
+2. **Sugestão de assunto:** expressões explicitamente cadastradas são procuradas no documento, sem usar o objetivo ou os fatos adicionais. São contados indicadores textuais distintos; repetir a mesma expressão não aumenta seu peso. Se apenas uma categoria tiver indicadores, ela é sugerida. Com várias categorias, só há sugestão predominante se o líder tiver ao menos o dobro dos indicadores do segundo. Nos demais casos, ou sem indicadores, utiliza-se **Mais de um assunto / não sei**. O usuário pode corrigir a categoria manualmente. Isso não representa interpretação jurídica nem confiança estatística.
+3. **Segmentação:** separa frases e parágrafos. Unidades longas são divididas em janelas de até 100 palavras, com sobreposição de 20 palavras.
+4. **Normalização:** reduz variações de escrita e aplica uma lista local de aproximações terminológicas. Palavras frequentes são desconsideradas na comparação. Negações, como “não” e “sem”, são preservadas, mas isso não equivale à compreensão de seu efeito jurídico.
+5. **Representação e comparação:** TF-IDF transforma os textos em vetores de termos e combinações de até duas palavras, com vocabulário ajustado à base. A similaridade do cosseno mede a proximidade entre cada trecho e o tema, a síntese e as palavras-chave de cada fonte.
+6. **Elegibilidade pelo documento:** ao menos um trecho deve compartilhar dois termos relevantes com a fonte e alcançar similaridade mínima de 0,12. Objetivo, assunto e fatos adicionais não criam elegibilidade sozinhos. Os parâmetros são experimentais e precisam de avaliação com amostra maior.
+7. **Foco e sentido do pedido:** regras textuais podem filtrar e ordenar as fontes elegíveis conforme o foco reconhecido e classificar a relação textual com pedidos de redução ou manutenção da multa. As categorias são **Direção textual compatível**, **Contraponto a conferir** e **Sentido do pedido não classificado**. Não são conclusões jurídicas.
+8. **Ordenação e retorno:** a seleção considera o foco, a relação textual reconhecida e a afinidade calculada. O objetivo tem peso experimental de 25%; os fatos têm peso de 10% somente quando compartilham ao menos dois termos relevantes com o documento; o restante vem do melhor trecho. A porcentagem exibida é a similaridade do trecho, sem esses pesos. Retornam até três fontes, sem completar a lista à força. A ordem não depende apenas da porcentagem exibida.
+9. **Referências e relatório:** os identificadores reconhecidos são conferidos separadamente no cadastro local. O relatório em Word registra a revisão exibida e mantém a ordem das fontes.
 
 Datas e valores cadastrados de autoridade **não aumentam a pontuação no mecanismo atual**. A coluna legada `grau_autoridade` permanece no CSV por compatibilidade, sem uso na seleção.
+
+**Limitação observada em teste manual:** o objetivo “Examinar se a multa contratual deve ser mantida integralmente” não teve seu sentido reconhecido pelas regras atuais. A interface e o relatório exibiram **Sentido do pedido não classificado**. A sugestão de assunto é uma função separada e não corrige essa limitação. As regras precisam ser ampliadas e validadas, inclusive para variações de escrita, negações e pedidos ambíguos.
 
 A porcentagem apresentada **não mede probabilidade de êxito, qualidade do documento, força jurídica, aplicabilidade do precedente ou veracidade de uma citação**. Textos com conclusões opostas podem compartilhar vocabulário e receber correspondência elevada. O sistema não conclui automaticamente que uma fonte apoia ou contraria o argumento.
 
 ## Base de jurisprudências
 
-A base ativa contém **20 decisões**, com informações conferidas em fontes oficiais do STJ. O acervo reúne casos empresariais e fundamentos contratuais gerais, além de fontes de apoio processual. Essa diferença está registrada no contexto e nos limites de cada cadastro.
+A base ativa contém **20 decisões**, com informações conferidas em fontes oficiais do STJ durante a formação do acervo. Isso não constitui verificação automática ou contínua da autenticidade, disponibilidade ou atualidade jurídica das fontes. O acervo reúne casos empresariais e fundamentos contratuais gerais, além de fontes de apoio processual. Essa diferença está registrada no contexto e nos limites de cada cadastro.
 
 | ID | Processo | Tema cadastrado e enquadramento |
 | --- | --- | --- |
@@ -198,7 +214,7 @@ A base ativa contém **20 decisões**, com informações conferidas em fontes of
 
 O registro J004, relativo a atraso de imóvel e dano moral, foi retirado da base ativa na revisão de escopo. Os IDs remanescentes não foram renumerados, preservando a rastreabilidade das alterações no Git. Por isso, o último ID é J021, mas o total de decisões é 20.
 
-Cada registro inclui identificação, síntese, palavras-chave e endereço oficial. As colunas `contexto_origem` e `limites_aplicacao` registram cautelas de uso e aparecem na interface em “Pedido, contexto e alcance da fonte”. Esses dois campos não são usados automaticamente no cálculo ou na ordenação dos resultados. Os dados completos de cada registro estão em `data/jurisprudencias.csv`.
+Cada registro inclui identificação, síntese, palavras-chave e endereço oficial. As colunas `contexto_origem` e `limites_aplicacao` registram cautelas de uso e aparecem na interface em **Pedido, contexto e alcance da fonte**. Esses dois campos não são usados automaticamente no cálculo ou na ordenação dos resultados. Os dados completos de cada registro estão em `data/jurisprudencias.csv`.
 
 As sínteses são textos previamente cadastrados, não conclusões produzidas a partir do documento do usuário. Os links podem levar a informativos oficiais, PDFs com várias notas, pesquisa de jurisprudência ou inteiro teor de acórdãos. Nos documentos coletivos, utilize o número do processo para localizar a nota correspondente. O aplicativo não atualiza o acervo automaticamente nem garante que um entendimento permaneça atual.
 
@@ -207,13 +223,14 @@ As sínteses são textos previamente cadastrados, não conclusões produzidas a 
 Na raiz do repositório, após instalar as dependências, execute:
 
 ```powershell
-uv run python -m unittest test_conferejus test_contexto test_referencias -v
+uv run python -m unittest test_conferejus test_contexto test_referencias test_relatorio test_pdf test_assunto -v
 ```
 
-A execução local de **11/11/2026** terminou com:
+A execução local confirmada em **14/11/2026** terminou com:
 
 ```text
-Ran 100 tests
+Ran 150 tests in 4.125s
+
 OK
 ```
 
@@ -227,27 +244,45 @@ O tempo de execução pode variar. A suíte usa `unittest`, incluído no Python,
 | Objetivo e contexto | 18 | Foco temático, ordenação conforme o objetivo, classificação textual de compatibilidade e contraponto, uso condicionado dos fatos adicionais e ausência de resultados criados apenas pelo contexto. |
 | Conferência de referências | 30 | Identificação e comparação de referências com a base local, distinguindo correspondência exata, processo relacionado, referência incompleta e não localizada. |
 | Relatório em Word | 20 | Geração do DOCX, preservação dos resultados e trechos, links, avisos, metadados e ausência de credenciais na exportação. |
-| **Total** | **100** | Testes automatizados do mecanismo, dos arquivos, da base, do contexto, das referências e do relatório. |
+| Leitura de PDF | 20 | Extração fragmentada, preservação das palavras, manutenção da leitura padrão quando necessário, PDFs normais, vazios e com várias páginas, limites e comparação com texto equivalente. |
+| Assunto e preparação do documento | 30 | Indicadores das categorias, múltiplos assuntos e ausência de indicadores, repetição sem peso adicional, evidências no texto original, limites, prévia versus texto completo, hash e preparação de TXT, DOCX e PDF. |
+| **Total** | **150** | Testes automatizados do mecanismo, dos arquivos, da base, do contexto, das referências, do relatório, do PDF e da sugestão de assunto. |
 
-A verificação dos domínios não abre os links nem comprova sua disponibilidade ou o conteúdo da página. Os exemplos de recuperação são sintéticos e próximos do vocabulário cadastrado. Preservar uma negação também não significa interpretar sua consequência jurídica.
+A verificação dos domínios não abre os links nem comprova sua disponibilidade ou o conteúdo da página. Os exemplos de recuperação e classificação são sintéticos e próximos do vocabulário cadastrado. Preservar uma negação também não significa interpretar sua consequência jurídica. Os testes de preparação não equivalem a testes completos da interface no navegador.
 
-**A aprovação da suíte não certifica a autenticidade ou atualidade jurídica das fontes, não mede precisão geral e não substitui testes manuais.** Permanecem pendentes avaliações mais amplas com documentos variados, conferência dos links no navegador, PDF textual, documentos escaneados e inválidos, interface, autenticação, diferentes dispositivos e hospedagem pública.
+**A aprovação da suíte não certifica a autenticidade ou atualidade jurídica das fontes, não mede precisão geral e não substitui testes manuais.**
 
 Se houver `FAIL` ou `ERROR`, confira o nome do teste e a mensagem antes de modificar o mecanismo ou a expectativa. Não remova um teste apenas para obter `OK`.
+
+### Testes manuais locais realizados
+
+Nos exemplos utilizados em 13 e 14/11/2026, foram conferidos:
+
+- Envio e análise de PDF textual, TXT e DOCX, incluindo um DOCX com texto em tabela.
+- Aviso de ausência de texto extraível em PDF composto por imagem e mensagem controlada para um arquivo inválido apresentado como PDF.
+- Leitura do PDF de teste cuja extração anterior fragmentava o texto, com recuperação do trecho relacionado à cláusula penal.
+- Exibição da prévia e sugestão **Cláusula penal e multas** para esse documento.
+- Preservação da escolha manual **Revisão contratual** ao alterar o objetivo informado.
+- Registro, em relatórios separados, do assunto escolhido manualmente e do assunto adotado pela sugestão automática.
+- Nova sugestão **Revisão contratual** ao trocar o documento pelo exemplo de onerosidade excessiva e imprevisão, com remoção dos resultados e do botão de download anteriores antes de nova comparação.
+- Abertura de relatório em Word e de link de fonte em teste anterior da exportação.
+
+Essas verificações cobrem exemplos específicos, não todos os arquivos ou cenários. Permanecem pendentes avaliações mais amplas com documentos variados, documentos longos e layouts complexos, conferência sistemática dos links, acessibilidade, interface em diferentes dispositivos, nova conferência da autenticação após mudanças e hospedagem pública.
 
 ## Limites de arquivos e processamento
 
 - Arquivos de até **20 MB**, embora o componente de envio possa mostrar um limite visual superior.
 - PDFs de até **200 páginas**.
 - Até **120 mil caracteres** de entrada e até **400 trechos** processáveis por análise.
+- Prévia limitada aos primeiros **4.000 caracteres**, sem reduzir o texto usado na análise.
 - Sem OCR para imagens ou PDFs escaneados.
 - Extração de DOCX restrita a parágrafos e tabelas lidos pela biblioteca utilizada. Outros elementos, como caixas de texto, podem não ser recuperados.
 
-Os limites protegem o processamento do protótipo. Um arquivo aceito pelo componente de upload ainda pode ser recusado ao iniciar a análise.
+Os limites protegem o processamento do protótipo. Um arquivo aceito pelo componente de upload ainda pode ser recusado durante a preparação da leitura ou a comparação. O tratamento de fragmentação de PDF só aceita a leitura alternativa quando a sequência das palavras coincide com a extração padrão; ele não recupera conteúdo ausente nem garante ordem de leitura correta em todo layout.
 
 ## Privacidade e uso responsável
 
-A comparação atual não depende de uma API externa de IA e não inclui gravação deliberada dos documentos em banco de dados ou na base de jurisprudências. O aplicativo mantém entradas e resultados no estado da sessão durante o uso. Isso não constitui garantia de eliminação imediata de todos os dados ou uma auditoria de segurança.
+A comparação atual não depende de uma API externa de IA e não inclui gravação deliberada dos documentos em banco de dados ou na base de jurisprudências. O aplicativo mantém entradas, texto preparado e resultados no estado da sessão durante o uso, sem cache global compartilhado para a preparação do documento. Isso não constitui garantia de eliminação imediata de todos os dados ou uma auditoria de segurança.
 
 O login envolve comunicação com o Google para autenticação e uso das informações de identidade disponibilizadas, como o nome para a saudação. Não é um cadastro com senha própria do ConfereJus. O login implementado não envia deliberadamente o conteúdo do documento ao Google como parte da análise, nem salva documentos em um perfil persistente. A autenticação utiliza cookies e deve ser considerada na revisão de privacidade antes da publicação.
 
@@ -265,7 +300,7 @@ O resultado é apoio à conferência e não substitui a leitura das fontes nem a
 - **pandas:** leitura e organização da base CSV.
 - **scikit-learn:** TF-IDF e similaridade do cosseno.
 - **pypdf:** extração de texto de PDF.
-- **python-docx:** leitura de DOCX.
+- **python-docx:** leitura de DOCX e geração do relatório em Word.
 - **unittest:** execução dos testes automatizados.
 - **uv:** ambiente, instalação e controle das dependências.
 
@@ -273,15 +308,16 @@ O arquivo `pyproject.toml` declara as dependências. O arquivo `uv.lock` registr
 
 | Arquivo ou pasta | Função |
 | --- | --- |
-| `app.py` | Interface, login opcional, entrada de documentos e apresentação dos resultados. |
-| `src/conferejus/analise.py` | Extração, carregamento da base, segmentação e comparação. |
-| `data/jurisprudencias.csv` | Acervo ativo de jurisprudências. |
-| `test_conferejus.py` | Suíte de 32 testes automatizados. |
-| `test_conferejus.py` | Suíte original de 32 testes automatizados. |
-| `test_contexto.py` | 18 testes adicionais de seleção por objetivo e contexto. |
-| `test_referencias.py` | 30 testes da conferência local de referências citadas no documento. |
+| `app.py` | Interface, login opcional, prévia, definição do assunto, entrada de documentos e apresentação dos resultados. |
+| `src/conferejus/analise.py` | Extração e preparação do texto, sugestão de assunto, carregamento da base, segmentação, comparação e conferência local de referências. |
 | `src/conferejus/relatorio.py` | Geração do relatório da revisão em Word, em memória. |
+| `data/jurisprudencias.csv` | Acervo ativo de jurisprudências. |
+| `test_conferejus.py` | Suíte original de 32 testes automatizados. |
+| `test_contexto.py` | 18 testes de seleção por objetivo e contexto. |
+| `test_referencias.py` | 30 testes da conferência local de referências. |
 | `test_relatorio.py` | 20 testes da exportação do relatório. |
+| `test_pdf.py` | 20 testes da leitura de PDF e do tratamento de fragmentação. |
+| `test_assunto.py` | 30 testes da sugestão de assunto e da preparação do documento. |
 | `logo.png` | Identidade visual utilizada pela interface. |
 | `pyproject.toml` | Metadados, dependências e configuração do projeto. |
 | `uv.lock` | Versões resolvidas das dependências. |
@@ -293,13 +329,14 @@ O arquivo `pyproject.toml` declara as dependências. O arquivo `uv.lock` registr
 ## Evoluções planejadas — ainda não disponíveis
 
 - Revisão contínua e eventual ampliação do acervo especializado, com avaliação de pertinência em amostra mais diversa.
-- Ampliar e validar as regras textuais de uso do objetivo e do contexto, avaliando suas limitações em casos mais variados, sem tratá-las como interpretação jurídica automática.
+- Ampliar e validar as regras de sugestão de assunto com documentos variados, sem tratar indicadores textuais como interpretação jurídica automática.
+- Ampliar e validar as regras de uso do objetivo e do contexto, incluindo a limitação observada com “mantida integralmente”, negações e pedidos ambíguos.
 - Ampliar os formatos reconhecidos na conferência local de referências, hoje restrita a REsp e AREsp, com AgInt, AgRg e EDcl nas formas suportadas. A ausência de correspondência na base não significa falsidade.
 - Entrada de áudio com transcrição editável e confirmação do usuário, com teste de viabilidade na hospedagem.
 - Preferências individuais vinculadas à conta e armazenamento adequado, sem pressupor armazenamento de documentos.
 - Hospedagem pública, configuração do login no endereço público e testes com outras contas e dispositivos.
 - Documentação específica do uso de IA e definição da licença de distribuição.
-- Revisão final das escritas do site e do GitHub, acessibilidade, contraste e apresentação visual.
+- Melhorias na experiência de uso, acessibilidade, contraste, apresentação dos resultados e revisão das escritas do site e do GitHub.
 
 Doutrinas e eventuais parcerias editoriais são possibilidades futuras. Não integram a base ou as funcionalidades atuais.
 
