@@ -6,7 +6,7 @@ O ConfereJus é um protótipo acadêmico que ajuda a conferir a relação entre 
 
 O usuário envia um documento ou cola seu conteúdo. Antes da comparação, pode conferir uma prévia do texto lido e aceitar ou corrigir o assunto sugerido. O sistema separa o material em trechos, compara cada trecho com os registros da base e apresenta as fontes selecionadas, o trecho relacionado, os termos que motivaram a seleção e o link oficial para conferência.
 
-**Estado atual — 14/11/2026:** aplicativo executável localmente, base de **20 decisões do STJ**, login opcional com Google testado no ambiente local e **150 testes automatizados aprovados**. Estão disponíveis a prévia do texto lido, a sugestão editável de assunto, a seleção orientada pelo objetivo por regras textuais, a conferência local de referências e o relatório da revisão em Word. A hospedagem pública ainda não está concluída. As preferências vinculadas à conta e a entrada por áudio ainda não estão disponíveis.
+**Estado atual — 15/11/2026:** aplicativo executável localmente, base de **20 decisões do STJ**, login opcional com Google testado no ambiente local e **150 testes automatizados aprovados**. Estão disponíveis a prévia do texto lido, a sugestão editável de assunto, a seleção orientada pelo objetivo por regras textuais, a conferência local de referências e o relatório da revisão em Word. Os resultados são organizados em abas para fontes relacionadas, referências citadas e download do relatório. A hospedagem pública ainda não está concluída. As preferências vinculadas à conta e a entrada por áudio ainda não estão disponíveis.
 
 O relatório da revisão pode ser baixado em Word (.docx), com objetivo, contexto, referências conferidas, fontes sugeridas, trechos, limites e links. O arquivo mantém a ordem dos resultados exibidos e registra o assunto efetivamente utilizado, inclusive quando escolhido manualmente. Não inclui dados da conta Google. Pode conter informações sensíveis do documento enviado: revise antes de compartilhar. Esse arquivo não se confunde com o relatório acadêmico de uso de IA.
 
@@ -41,12 +41,14 @@ Essas características descrevem a proposta e a implementação do protótipo. N
 - Sugestão de assunto por expressões do próprio documento, com indicadores e trechos explicativos, sem usar o objetivo ou os fatos adicionais para gerar essa sugestão.
 - Escolha manual do assunto, preservada ao alterar o objetivo ou outros campos do mesmo documento. A troca do documento reinicia essa escolha e calcula uma nova sugestão.
 - Registro da questão a examinar, do assunto, da posição da parte e de fatos adicionais.
+- Contexto adicional recolhido para simplificar o formulário. Se o usuário não informar sua posição, o sistema registra **Ainda não definida**, sem presumir que a parte seja credora ou devedora.
 - Segmentação e comparação textual por trecho, com normalização de maiúsculas, acentos e algumas expressões explicitamente cadastradas.
 - Seleção de até três decisões elegíveis, com similaridade textual, síntese cadastrada, trecho relacionado, termos compartilhados, contexto, limites e link oficial.
 - Conferência local dos identificadores de referências reconhecidas no documento, separada da seleção por assunto.
 - Mensagem específica quando nenhum registro da base atende aos critérios mínimos.
 - Remoção dos resultados e do relatório anteriores quando as entradas da revisão são alteradas, exigindo nova comparação.
 - Download do relatório da revisão em Word.
+- Organização dos resultados em três abas: fontes relacionadas, referências citadas e relatório. A similaridade permanece visível, mas com menor destaque visual do que o processo, o tema e a relação textual com o pedido.
 - Login opcional com Google, saudação e saída da conta, testados localmente.
 - Suíte automatizada do mecanismo, dos arquivos, da base, do contexto, das referências, do relatório, da leitura de PDF e da sugestão de assunto.
 
@@ -226,10 +228,10 @@ Na raiz do repositório, após instalar as dependências, execute:
 uv run python -m unittest test_conferejus test_contexto test_referencias test_relatorio test_pdf test_assunto -v
 ```
 
-A execução local confirmada em **14/11/2026** terminou com:
+A execução local confirmada novamente em **15/11/2026** terminou com:
 
 ```text
-Ran 150 tests in 4.125s
+Ran 150 tests
 
 OK
 ```
@@ -256,7 +258,7 @@ Se houver `FAIL` ou `ERROR`, confira o nome do teste e a mensagem antes de modif
 
 ### Testes manuais locais realizados
 
-Nos exemplos utilizados em 13 e 14/11/2026, foram conferidos:
+Nos exemplos utilizados entre 13 e 15/11/2026, foram conferidos:
 
 - Envio e análise de PDF textual, TXT e DOCX, incluindo um DOCX com texto em tabela.
 - Aviso de ausência de texto extraível em PDF composto por imagem e mensagem controlada para um arquivo inválido apresentado como PDF.
@@ -266,6 +268,9 @@ Nos exemplos utilizados em 13 e 14/11/2026, foram conferidos:
 - Registro, em relatórios separados, do assunto escolhido manualmente e do assunto adotado pela sugestão automática.
 - Nova sugestão **Revisão contratual** ao trocar o documento pelo exemplo de onerosidade excessiva e imprevisão, com remoção dos resultados e do botão de download anteriores antes de nova comparação.
 - Abertura de relatório em Word e de link de fonte em teste anterior da exportação.
+- Organização dos resultados em abas, abertura das três seções e preservação da fonte, da referência e do relatório da mesma revisão.
+- Redução do destaque visual da similaridade, sem alteração do valor exibido ou da ordem calculada pelo mecanismo.
+- Posição da parte definida como **Ainda não definida** quando o usuário não abre ou não preenche o contexto adicional.
 
 Essas verificações cobrem exemplos específicos, não todos os arquivos ou cenários. Permanecem pendentes avaliações mais amplas com documentos variados, documentos longos e layouts complexos, conferência sistemática dos links, acessibilidade, interface em diferentes dispositivos, nova conferência da autenticação após mudanças e hospedagem pública.
 
@@ -308,7 +313,7 @@ O arquivo `pyproject.toml` declara as dependências. O arquivo `uv.lock` registr
 
 | Arquivo ou pasta | Função |
 | --- | --- |
-| `app.py` | Interface, login opcional, prévia, definição do assunto, entrada de documentos e apresentação dos resultados. |
+| `app.py` | Interface, login opcional, prévia, definição do assunto, contexto adicional, entrada de documentos e resultados organizados em abas. |
 | `src/conferejus/analise.py` | Extração e preparação do texto, sugestão de assunto, carregamento da base, segmentação, comparação e conferência local de referências. |
 | `src/conferejus/relatorio.py` | Geração do relatório da revisão em Word, em memória. |
 | `data/jurisprudencias.csv` | Acervo ativo de jurisprudências. |
