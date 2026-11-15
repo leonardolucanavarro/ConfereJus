@@ -12,7 +12,6 @@ from conferejus.analise import (
     OPCOES_ASSUNTOS,
     analisar_documento,
     conferir_referencias,
-    extrair_texto_arquivo,
     preparar_documento,
 )
 
@@ -20,7 +19,9 @@ from conferejus.analise import (
 def mostrar_referencias(referencias, erro=""):
     """Exibe conferencia de identificadores sem mistura com o ranking tematico."""
     st.subheader("Referências citadas no documento")
-    st.caption("Conferência local de identificadores do STJ: REsp e AREsp, com AgInt, AgRg e EDcl opcionais na forma ‘no’. Outras classes, grafias e citações podem não ser reconhecidas. Não há consulta automática aos tribunais.")
+    st.caption("Conferência de identificadores no cadastro local, sem consulta automática aos tribunais.")
+    with st.expander("Quais referências são reconhecidas?"):
+        st.write("REsp e AREsp, com AgInt, AgRg e EDcl opcionais na forma ‘no’. Outras classes, grafias e citações podem não ser reconhecidas.")
     if erro:
         st.warning("A conferência de referências não foi concluída: " + erro)
         return
@@ -66,7 +67,14 @@ st.markdown("""
     .eyebrow { color: #8ab8ad; letter-spacing: .13em; font-size: .72rem; }
     .intro { color: #b0c3c9; max-width: 730px; line-height: 1.6; }
     .section-label { color: #91b9b0; font-size: .8rem; letter-spacing: .07em; margin-top: 1rem; }
-    [data-testid="stCaptionContainer"] p { color: #a9bec5; }
+    [data-testid="stCaptionContainer"] p { color: #b5c9cf; }
+    button:focus-visible, a:focus-visible, input:focus-visible, textarea:focus-visible {
+        outline: 3px solid #8de0cb !important; outline-offset: 3px;
+    }
+    @media (max-width: 640px) {
+        .block-container { padding: 3.5rem 1rem 2rem; }
+        h1 { font-size: 1.85rem !important; }
+    }
     [data-testid="stVerticalBlockBorderWrapper"] { border-color: #29434c; }
     textarea, input { color: #142f39 !important; background: #f1f4f3 !important; -webkit-text-fill-color: #142f39 !important; }
     textarea::placeholder, input::placeholder { color: #62767c !important; -webkit-text-fill-color: #62767c !important; opacity: 1; }
@@ -139,8 +147,10 @@ with col_brand:
     st.markdown('<p class="brand-name">ConfereJus</p><div class="eyebrow">DISPUTAS CONTRATUAIS EMPRESARIAIS</div>', unsafe_allow_html=True)
 
 st.divider()
-st.title("Revisão de fundamentos contratuais")
-st.markdown('<p class="intro">Parta do seu documento e delimite a controvérsia. Consulte decisões da base selecionada e confira sua pertinência antes de utilizá-las na argumentação.</p>', unsafe_allow_html=True)
+st.title("Revise os fundamentos do seu documento")
+st.markdown('<p class="intro">Envie o material, diga o que quer examinar e confira fontes relacionadas na base selecionada do STJ.</p>', unsafe_allow_html=True)
+st.caption("1. Envie o documento  ·  2. Defina a questão  ·  3. Confira as fontes")
+st.info("Protótipo acadêmico: utilize material fictício, público ou anonimizado. As sugestões não são conclusões jurídicas.")
 
 with st.expander("Escopo e método desta versão"):
     st.write("O projeto está sendo direcionado a conflitos sobre descumprimento de contratos empresariais: inadimplemento, cláusula penal, perdas e danos, boa-fé e revisão contratual.")
@@ -152,13 +162,15 @@ with st.expander("Escopo e método desta versão"):
 principal, lateral = st.columns([1.65, 1], gap="large")
 with principal:
     st.markdown('<div class="section-label">01 / DOCUMENTO</div>', unsafe_allow_html=True)
-    st.subheader("Material para revisão")
+    st.subheader("Seu documento")
     modo = st.radio("Forma de envio", ["Enviar arquivo", "Colar texto"], horizontal=True)
     arquivo = None
     texto = ""
     if modo == "Enviar arquivo":
         arquivo = st.file_uploader("Selecione o documento", type=["pdf", "docx", "txt"])
-        st.caption("PDF com texto selecionável, Word ou TXT. Até 20 MB e 120 mil caracteres de texto; PDFs de até 200 páginas. Sem OCR para documentos escaneados.")
+        st.caption("PDF com texto selecionável, DOCX ou TXT · até 20 MB. PDFs escaneados não têm leitura por OCR.")
+        with st.expander("Limites de leitura"):
+            st.write("Até 120 mil caracteres e 200 páginas por PDF. Documentos escaneados precisam de uma transcrição ou de uma versão com texto selecionável.")
     else:
         texto = st.text_area("Trecho ou documento", height=290, max_chars=MAXIMO_CARACTERES, placeholder="Insira o texto que deseja comparar com a base de decisões.")
 
@@ -204,16 +216,16 @@ with principal:
 
     st.markdown('<div class="section-label">02 / QUESTÃO EM DISCUSSÃO</div>', unsafe_allow_html=True)
     objetivo = st.text_area("Qual argumento ou pedido você quer examinar?", height=110, placeholder="Ex.: Quero examinar os fundamentos para reduzir a multa diante do cumprimento parcial do contrato.")
-    st.caption("Informe o pedido que deseja examinar. Ele orienta a seleção entre fontes que já apresentam correspondência com o documento.")
+    st.caption("Exemplo: examinar os fundamentos para reduzir uma multa. O pedido orienta a seleção, mas não cria correspondência sozinho.")
 
 with lateral:
-    st.markdown('<div class="section-label">CONTEXTO DA REVISÃO</div>', unsafe_allow_html=True)
+    st.markdown('<div class="section-label">AJUSTES DA REVISÃO</div>', unsafe_allow_html=True)
+    st.subheader("Confira o assunto")
     modo_assunto = "Usar sugestão do documento"
     tema = OPCOES_ASSUNTOS[-1]
     if documento_pronto:
         sugestao = preparacao["sugestao"]
         st.write("**Assunto sugerido:** " + sugestao["assunto"])
-        st.caption(sugestao["explicacao"])
         modo_assunto = st.radio(
             "Como definir o assunto?", ["Usar sugestão do documento", "Escolher manualmente"],
             key="modo_assunto",
@@ -226,6 +238,7 @@ with lateral:
         else:
             tema = sugestao["assunto"]
         with st.expander("Por que este assunto foi sugerido?"):
+            st.write(sugestao["explicacao"])
             st.write(sugestao["aviso"])
             if sugestao["assuntos_detectados"]:
                 st.write("Assuntos com indicadores: " + ", ".join(sugestao["assuntos_detectados"]) + ".")
@@ -236,12 +249,19 @@ with lateral:
             st.caption("São contados indicadores distintos. Repetições da mesma expressão não aumentam o peso. Com vários assuntos, só há sugestão predominante se o líder tiver pelo menos o dobro dos indicadores do segundo. Não é uma porcentagem de confiança.")
     else:
         st.caption("Envie um documento ou cole texto para receber uma sugestão de assunto e conferir a leitura.")
-    posicao = st.selectbox("Posição da parte representada", ["Credora da obrigação discutida", "Devedora da obrigação discutida", "Obrigações recíprocas / ambas", "Ainda não definida"])
-    contexto = st.text_area("Fatos relevantes (opcional)", height=140, placeholder="Qual obrigação foi descumprida? Houve cumprimento parcial? O que a outra parte alega?")
-    st.caption("O assunto é usado quando não há questão específica reconhecida no texto. Fatos com termos presentes no documento podem refinar a ordem. A posição não determina, sozinha, quais fontes favorecem a parte.")
+    with st.expander("Contexto adicional (opcional) — posição e fatos"):
+        posicao = st.selectbox(
+            "Posição da parte representada",
+            ["Credora da obrigação discutida", "Devedora da obrigação discutida", "Obrigações recíprocas / ambas", "Ainda não definida"],
+            index=3,
+        )
+        contexto = st.text_area("Fatos relevantes (opcional)", height=140, placeholder="Qual obrigação foi descumprida? Houve cumprimento parcial? O que a outra parte alega?")
+        st.caption("A posição apenas fica registrada, sem favorecer automaticamente credor ou devedor. Fatos ligados ao documento podem refinar a ordem.")
+    with st.expander("Como o assunto influencia a seleção?"):
+        st.write("O assunto é uma alternativa quando não há foco específico reconhecido no objetivo ou no documento. A sugestão usa somente o documento e pode ser corrigida. Não é uma interpretação jurídica.")
 
 iniciar = st.button("Comparar fundamentos", type="primary")
-st.caption("A revisão também confere os identificadores de referências reconhecidas no documento contra a base local, sem alterar a ordem das sugestões por assunto.")
+st.caption("Os resultados aparecem em três abas: fontes relacionadas, referências citadas e relatório em Word.")
 
 entrada = ("assunto-v1", chave_documento, modo_assunto, tema, posicao, objetivo, contexto)
 if st.session_state.get("entrada_revisada") != entrada:
@@ -301,73 +321,82 @@ if iniciar:
 revisao = st.session_state.get("revisao")
 if revisao:
     st.divider()
-    st.subheader("Relatório da revisão")
-    if revisao.get("relatorio_docx"):
-        st.download_button(
-            "Baixar relatório em Word", data=revisao["relatorio_docx"],
-            file_name="conferejus_revisao.docx",
-            mime="application/vnd.openxmlformats-officedocument.wordprocessingml.document",
-            key="baixar_relatorio_docx",
-        )
-        st.caption("O arquivo registra esta revisão, com objetivo, contexto, referências, fontes e links. Contém trechos do material enviado: revise antes de compartilhar. A conta Google não é incluída. Este não é o relatório acadêmico de uso de IA.")
-    elif revisao.get("erro_relatorio"):
-        st.warning(revisao["erro_relatorio"])
-    st.divider()
-    mostrar_referencias(revisao["referencias"], revisao["erro_referencias"])
-    st.divider()
-    st.subheader("Jurisprudências relacionadas ao documento")
-    st.write(f"Questão informada: {revisao['objetivo']}")
-    st.caption(f"{revisao['tema']} · {revisao['posicao']}")
-    st.caption("Definição do assunto: " + revisao.get("origem_assunto", "Não registrada") + ".")
-    if revisao.get("contexto"):
-        with st.expander("Contexto informado"):
-            st.write(revisao["contexto"])
-    st.caption("Confira a pertinência de cada decisão considerando os fatos e o pedido do caso. A pontuação representa similaridade textual, não probabilidade de êxito.")
-    # Preserva a ordem do mecanismo: ela nao e somente a similaridade bruta.
-    resultados = revisao["resultados"]
-    if resultados and resultados[0].get("questoes_foco"):
-        st.caption("Foco de seleção: " + ", ".join(resultados[0]["questoes_foco"]) + ". Origem: " + resultados[0]["origem_foco"] + ".")
-    if resultados and all(r.get("relacao_pedido") == "Contraponto a conferir" for r in resultados):
-        st.info("As fontes selecionadas trazem possíveis contrapontos ao pedido informado. Nenhuma foi classificada pelas regras atuais como direção textual compatível. Isso não significa que inexista fundamento para o pedido.")
-    if not resultados:
-        st.info("Nenhuma decisão da base passou pelos filtros de correspondência com o documento e pelo foco reconhecido. Isso não significa que inexista jurisprudência sobre o assunto. Confira a questão informada ou experimente um trecho mais específico.")
-    for resultado in resultados:
-        with st.container(border=True):
-            titulo, pontuacao = st.columns([3, 1])
-            titulo.markdown(f"#### {resultado['processo']}")
-            data_original = str(resultado["data_julgamento"])
-            try:
-                data_formatada = date.fromisoformat(data_original[:10]).strftime("%d/%m/%Y")
-            except ValueError:
-                data_formatada = data_original
-            titulo.caption(f"{resultado['tribunal']} · {resultado['orgao_julgador']} · {data_formatada}")
-            pontuacao.metric("Similaridade textual", f"{resultado['aderencia_percentual']:.1f}%".replace(".", ","))
-            st.write(f"Tema da decisão: {resultado['tema']}")
-            st.write(resultado["tese_resumida"])
-            st.caption("Síntese cadastrada na base. Consulte a fonte oficial para conferir o inteiro teor e o contexto da decisão.")
-            st.write("**Relação com o pedido:** " + resultado.get("relacao_pedido", "Sentido não classificado"))
-            with st.expander("Pedido, contexto e alcance da fonte"):
-                st.write(resultado.get("explicacao_pedido", "Confira a relação entre a síntese e o pedido."))
-                if resultado.get("contexto_origem"):
-                    st.write("**Contexto de origem:** " + resultado["contexto_origem"])
-                if resultado.get("limites_aplicacao"):
-                    st.write("**Limites de aplicação:** " + resultado["limites_aplicacao"])
-            st.markdown("**Trecho relacionado do seu documento**")
-            st.text(resultado["trecho_relacionado"])
-            with st.expander("Por que esta decisão foi selecionada?"):
-                st.write("Este trecho apresentou a maior similaridade com o cadastro desta fonte entre os trechos que passaram pelo filtro de relevância.")
-                st.write("Termos em comum após normalização: " + ", ".join(resultado["termos_relacionados"]) + ".")
-                st.write(resultado.get("explicacao_foco", "Comparação textual por trechos."))
-                st.caption("A ordem considera o foco, a direção textual reconhecida para pedidos de redução ou manutenção de multa e a afinidade textual com objetivo e fatos ancorados. A similaridade exibida continua sendo a do trecho original e pode ser menor em uma fonte mais bem posicionada.")
-                st.caption("Expressões como cláusula penal e multa contratual são aproximadas por regras explícitas. Termos em comum não demonstram, sozinhos, concordância entre os argumentos.")
-            st.link_button("Abrir fonte oficial", resultado["fonte_url"])
-    with st.expander("Como interpretar esta seleção"):
-        st.write("O documento é separado em frases e janelas de até 100 palavras, com sobreposição nas unidades longas. Cada trecho é comparado ao tema, à síntese e às palavras-chave das fontes por TF-IDF e similaridade do cosseno. Não há bônus por data ou valor cadastrado de autoridade.")
-        st.write(f"Para uma decisão ser elegível, ao menos um trecho do documento deve ter {MINIMO_TERMOS_COMUNS} termos relevantes em comum com a fonte e similaridade de pelo menos {LIMIAR_SIMILARIDADE:.0%}. Objetivo e fatos não criam sozinhos essa elegibilidade. O sistema retorna até três fontes e não completa a lista à força.")
-        st.write("Depois do filtro do documento, regras de expressões identificam questões específicas e excluem fontes sobre questões diferentes quando o foco é reconhecido. A questão informada tem precedência sobre o documento para identificar o foco. O assunto selecionado é utilizado apenas se não houver foco mais específico. Regras incompletas podem deixar de reconhecer sinônimos ou excluir fontes úteis, por isso os resultados precisam de conferência.")
-        st.write("A ordem prioriza a coincidência de questão e, para pedidos explícitos de redução ou manutenção de multa, a direção textual do cadastro. Em seguida, usa afinidade textual: 25% para o objetivo e 10% para fatos que compartilhem ao menos dois termos relevantes com o documento, quando preenchidos, e o restante para o melhor trecho do documento. São pesos experimentais, não probabilidades jurídicas. A porcentagem exibida não inclui esses pesos e não é uma nota de qualidade.")
-        st.write("As classificações de direção compatível e contraponto não demonstram apoio ou contrariedade jurídica. Elas reconhecem expressões do pedido e da síntese, sem resolver os fatos ou os requisitos do precedente. A posição da parte não aumenta pontuação. Contexto de origem e limites cadastrados são exibidos para leitura, não como fatos automaticamente verificados no documento. A conferência de referências compara apenas identificadores: não valida transcrições ou conclusões atribuídas à decisão e não substitui a leitura da fonte.")
+    st.subheader("Sua revisão")
+    st.write("**Questão examinada:** " + revisao["objetivo"])
+    st.caption("Assunto utilizado: " + revisao["tema"])
+    with st.expander("Ver os dados desta revisão"):
+        st.write("Definição do assunto: " + revisao.get("origem_assunto", "Não registrada") + ".")
+        st.write("Posição da parte: " + revisao["posicao"])
+        st.text(revisao.get("contexto") or "Sem fatos adicionais informados.")
+        st.caption("Documento: " + revisao["origem_documento"])
+    aba_fontes, aba_referencias, aba_relatorio = st.tabs([
+        "Fontes relacionadas (" + str(len(revisao["resultados"])) + ")",
+        "Referências citadas (" + str(len(revisao["referencias"])) + ")",
+        "Baixar relatório",
+    ])
+    with aba_fontes:
+        st.subheader("Jurisprudências relacionadas ao documento")
+        st.info("Leia a fonte antes de utilizar: a similaridade mede proximidade textual, não chance de êxito ou aplicabilidade jurídica.")
+        # Preserva a ordem do mecanismo: ela nao e somente a similaridade bruta.
+        resultados = revisao["resultados"]
+        if resultados and resultados[0].get("questoes_foco"):
+            st.caption("Foco de seleção: " + ", ".join(resultados[0]["questoes_foco"]) + ". Origem: " + resultados[0]["origem_foco"] + ".")
+        if resultados and all(r.get("relacao_pedido") == "Contraponto a conferir" for r in resultados):
+            st.info("As fontes selecionadas trazem possíveis contrapontos ao pedido informado. Nenhuma foi classificada pelas regras atuais como direção textual compatível. Isso não significa que inexista fundamento para o pedido.")
+        if not resultados:
+            st.info("Nenhuma decisão da base passou pelos filtros de correspondência com o documento e pelo foco reconhecido. Isso não significa que inexista jurisprudência sobre o assunto. Confira a questão informada ou experimente um trecho mais específico.")
+        for resultado in resultados:
+            with st.container(border=True):
+                titulo, pontuacao = st.columns([3, 1])
+                titulo.markdown(f"#### {resultado['processo']}")
+                data_original = str(resultado["data_julgamento"])
+                try:
+                    data_formatada = date.fromisoformat(data_original[:10]).strftime("%d/%m/%Y")
+                except ValueError:
+                    data_formatada = data_original
+                titulo.caption(f"{resultado['tribunal']} · {resultado['orgao_julgador']} · {data_formatada}")
+                pontuacao.caption("Similaridade textual")
+                pontuacao.write(f"{resultado['aderencia_percentual']:.1f}%".replace(".", ","))
+                st.write(f"Tema da decisão: {resultado['tema']}")
+                st.write(resultado["tese_resumida"])
+                st.caption("Síntese cadastrada, não gerada a partir do seu documento.")
+                st.write("**Relação com o pedido:** " + resultado.get("relacao_pedido", "Sentido não classificado"))
+                with st.expander("Pedido, contexto e alcance da fonte"):
+                    st.write(resultado.get("explicacao_pedido", "Confira a relação entre a síntese e o pedido."))
+                    if resultado.get("contexto_origem"):
+                        st.write("**Contexto de origem:** " + resultado["contexto_origem"])
+                    if resultado.get("limites_aplicacao"):
+                        st.write("**Limites de aplicação:** " + resultado["limites_aplicacao"])
+                st.markdown("**Trecho relacionado do seu documento**")
+                st.text(resultado["trecho_relacionado"])
+                with st.expander("Por que esta decisão foi selecionada?"):
+                    st.write("Este trecho apresentou a maior similaridade com o cadastro desta fonte entre os trechos que passaram pelo filtro de relevância.")
+                    st.write("Termos em comum após normalização: " + ", ".join(resultado["termos_relacionados"]) + ".")
+                    st.write(resultado.get("explicacao_foco", "Comparação textual por trechos."))
+                    st.caption("A ordem considera o foco, a direção textual reconhecida para pedidos de redução ou manutenção de multa e a afinidade textual com objetivo e fatos ancorados. A similaridade exibida continua sendo a do trecho original e pode ser menor em uma fonte mais bem posicionada.")
+                    st.caption("Expressões como cláusula penal e multa contratual são aproximadas por regras explícitas. Termos em comum não demonstram, sozinhos, concordância entre os argumentos.")
+                st.link_button("Abrir fonte oficial", resultado["fonte_url"])
+        with st.expander("Como interpretar esta seleção"):
+            st.write("O documento é separado em frases e janelas de até 100 palavras, com sobreposição nas unidades longas. Cada trecho é comparado ao tema, à síntese e às palavras-chave das fontes por TF-IDF e similaridade do cosseno. Não há bônus por data ou valor cadastrado de autoridade.")
+            st.write(f"Para uma decisão ser elegível, ao menos um trecho do documento deve ter {MINIMO_TERMOS_COMUNS} termos relevantes em comum com a fonte e similaridade de pelo menos {LIMIAR_SIMILARIDADE:.0%}. Objetivo e fatos não criam sozinhos essa elegibilidade. O sistema retorna até três fontes e não completa a lista à força.")
+            st.write("Depois do filtro do documento, regras de expressões identificam questões específicas e excluem fontes sobre questões diferentes quando o foco é reconhecido. A questão informada tem precedência sobre o documento para identificar o foco. O assunto selecionado é utilizado apenas se não houver foco mais específico. Regras incompletas podem deixar de reconhecer sinônimos ou excluir fontes úteis, por isso os resultados precisam de conferência.")
+            st.write("A ordem prioriza a coincidência de questão e, para pedidos explícitos de redução ou manutenção de multa, a direção textual do cadastro. Em seguida, usa afinidade textual: 25% para o objetivo e 10% para fatos que compartilhem ao menos dois termos relevantes com o documento, quando preenchidos, e o restante para o melhor trecho do documento. São pesos experimentais, não probabilidades jurídicas. A porcentagem exibida não inclui esses pesos e não é uma nota de qualidade.")
+            st.write("As classificações de direção compatível e contraponto não demonstram apoio ou contrariedade jurídica. Elas reconhecem expressões do pedido e da síntese, sem resolver os fatos ou os requisitos do precedente. A posição da parte não aumenta pontuação. Contexto de origem e limites cadastrados são exibidos para leitura, não como fatos automaticamente verificados no documento. A conferência de referências compara apenas identificadores: não valida transcrições ou conclusões atribuídas à decisão e não substitui a leitura da fonte.")
+
+    with aba_referencias:
+        mostrar_referencias(revisao["referencias"], revisao["erro_referencias"])
+    with aba_relatorio:
+        st.subheader("Relatório da revisão")
+        if revisao.get("relatorio_docx"):
+            st.download_button(
+                "Baixar relatório em Word", data=revisao["relatorio_docx"],
+                file_name="conferejus_revisao.docx",
+                mime="application/vnd.openxmlformats-officedocument.wordprocessingml.document",
+                key="baixar_relatorio_docx",
+            )
+            st.caption("O arquivo registra esta revisão, com objetivo, contexto, referências, fontes e links. Contém trechos do material enviado: revise antes de compartilhar. A conta Google não é incluída. Este não é o relatório acadêmico de uso de IA.")
+        elif revisao.get("erro_relatorio"):
+            st.warning(revisao["erro_relatorio"])
 
 st.divider()
 st.caption("ConfereJus · Protótipo acadêmico em desenvolvimento · Revisão profissional indispensável.")
-
