@@ -6,7 +6,7 @@ O ConfereJus é um protótipo acadêmico que ajuda a conferir a relação entre 
 
 O usuário envia um documento ou cola seu conteúdo. Antes da comparação, pode conferir uma prévia do texto lido e aceitar ou corrigir o assunto sugerido. O sistema separa o material em trechos, compara cada trecho com os registros da base e apresenta as fontes selecionadas, o trecho relacionado, os termos que motivaram a seleção e o link oficial para conferência.
 
-**Estado atual — 15/11/2026:** aplicativo executável localmente, base de **20 decisões do STJ**, login opcional com Google testado no ambiente local e **150 testes automatizados aprovados**. Estão disponíveis a prévia do texto lido, a sugestão editável de assunto, a seleção orientada pelo objetivo por regras textuais, a conferência local de referências e o relatório da revisão em Word. Os resultados são organizados em abas para fontes relacionadas, referências citadas e download do relatório. A hospedagem pública ainda não está concluída. As preferências vinculadas à conta e a entrada por áudio ainda não estão disponíveis.
+**Estado atual — 16/11/2026:** aplicativo publicado em [https://conferejus.streamlit.app/](https://conferejus.streamlit.app/), base de **20 decisões do STJ**, login opcional com Google configurado para público externo e **150 testes automatizados aprovados**. Estão disponíveis a prévia do texto lido, a sugestão editável de assunto, a seleção orientada pelo objetivo por regras textuais, a conferência local de referências e o relatório da revisão em Word. Os resultados são organizados em abas para fontes relacionadas, referências citadas e download do relatório. O site também publica Política de Privacidade e Termos de Uso. Preferências vinculadas à conta ainda não estão disponíveis. A entrada por áudio foi retirada do escopo por não oferecer benefício proporcional à complexidade adicional nesta versão.
 
 O relatório da revisão pode ser baixado em Word (.docx), com objetivo, contexto, referências conferidas, fontes sugeridas, trechos, limites e links. O arquivo mantém a ordem dos resultados exibidos e registra o assunto efetivamente utilizado, inclusive quando escolhido manualmente. Não inclui dados da conta Google. Pode conter informações sensíveis do documento enviado: revise antes de compartilhar. Esse arquivo não se confunde com o relatório acadêmico de uso de IA.
 
@@ -49,7 +49,8 @@ Essas características descrevem a proposta e a implementação do protótipo. N
 - Remoção dos resultados e do relatório anteriores quando as entradas da revisão são alteradas, exigindo nova comparação.
 - Download do relatório da revisão em Word.
 - Organização dos resultados em três abas: fontes relacionadas, referências citadas e relatório. A similaridade permanece visível, mas com menor destaque visual do que o processo, o tema e a relação textual com o pedido.
-- Login opcional com Google, saudação e saída da conta, testados localmente.
+- Login opcional com Google, saudação e saída da conta, configurados no endereço público. A análise também permanece disponível sem autenticação.
+- Política de Privacidade e Termos de Uso acessíveis no rodapé do aplicativo.
 - Suíte automatizada do mecanismo, dos arquivos, da base, do contexto, das referências, do relatório, da leitura de PDF e da sugestão de assunto.
 
 **O objetivo informado pode alterar a seleção e a ordem dos resultados por meio de regras textuais.** O assunto funciona como alternativa quando não há foco reconhecido no objetivo ou no documento. Os fatos adicionais só refinam a ordenação quando compartilham termos com o documento. A posição da parte é registrada, mas não gera preferência automática por decisões favoráveis. A correspondência inicial continua dependendo dos trechos do documento: o contexto, sozinho, não cria resultados.
@@ -58,7 +59,7 @@ O login não é condição para utilizar a análise na interface configurada. Ne
 
 ## Como usar
 
-1. Abra o aplicativo. Você pode utilizar a análise sem entrar na conta ou escolher **Entrar com Google**, quando o login estiver configurado.
+1. Abra [https://conferejus.streamlit.app/](https://conferejus.streamlit.app/). Você pode utilizar a análise sem entrar na conta ou escolher **Entrar com Google**.
 2. Escolha **Enviar arquivo** ou **Colar texto** e insira o material que deseja examinar.
 3. Abra **Conferir o texto lido**. Confira a ordem, os acentos e eventuais trechos ausentes. Em documentos longos, a prévia mostra somente o início, não uma validação de toda a extração.
 4. Confira o **Assunto sugerido** e, se necessário, a explicação em **Por que este assunto foi sugerido?** Mantenha **Usar sugestão do documento** ou selecione **Escolher manualmente** para corrigir a categoria.
@@ -114,7 +115,7 @@ Abra o endereço informado em **Local URL**, normalmente `http://localhost:8501`
 
 Mantenha o processo em execução durante o uso. Para abrir novamente, execute o comando do Streamlit na pasta do projeto.
 
-**O endereço localhost representa apenas a execução local.** Ele não é o link público a ser compartilhado. O endereço público será incluído aqui quando a hospedagem estiver concluída e testada.
+**O endereço localhost representa apenas a execução local.** O endereço público a ser compartilhado é [https://conferejus.streamlit.app/](https://conferejus.streamlit.app/).
 
 ### Configuração local do login com Google
 
@@ -149,7 +150,7 @@ Os valores acima são marcadores, não credenciais utilizáveis. Não compartilh
 
 No ambiente configurado, foram testados o login, a saudação, a saída da conta e a permanência do formulário de análise sem autenticação. **No teste local sem credenciais de autenticação, o formulário e a comparação funcionaram normalmente, com o botão de login oculto. Após restaurar a configuração, o login com Google voltou a funcionar.** Esses testes anteriores não substituem uma nova conferência da autenticação após alterações na interface ou na hospedagem.
 
-Na publicação, será necessário cadastrar o URI do site público com o caminho `/oauth2callback`, guardar as credenciais nas configurações privadas da hospedagem e conferir a liberação do público externo. Configurar o login local não publica o site.
+Na publicação atual, o URI público cadastrado termina em `/oauth2callback`, as credenciais ficam nas configurações privadas do Streamlit Community Cloud e o público do Google Auth Platform está definido como externo e em produção. A Política de Privacidade e os Termos de Uso utilizam o mesmo domínio público. Essas configurações não integram o repositório.
 
 ### Problemas comuns
 
@@ -228,7 +229,7 @@ Na raiz do repositório, após instalar as dependências, execute:
 uv run python -m unittest test_conferejus test_contexto test_referencias test_relatorio test_pdf test_assunto -v
 ```
 
-A execução local confirmada novamente em **15/11/2026** terminou com:
+A execução local confirmada novamente em **16/11/2026** terminou com:
 
 ```text
 Ran 150 tests
@@ -258,7 +259,7 @@ Se houver `FAIL` ou `ERROR`, confira o nome do teste e a mensagem antes de modif
 
 ### Testes manuais locais realizados
 
-Nos exemplos utilizados entre 13 e 15/11/2026, foram conferidos:
+Nos exemplos utilizados entre 13 e 16/11/2026, foram conferidos:
 
 - Envio e análise de PDF textual, TXT e DOCX, incluindo um DOCX com texto em tabela.
 - Aviso de ausência de texto extraível em PDF composto por imagem e mensagem controlada para um arquivo inválido apresentado como PDF.
@@ -271,8 +272,11 @@ Nos exemplos utilizados entre 13 e 15/11/2026, foram conferidos:
 - Organização dos resultados em abas, abertura das três seções e preservação da fonte, da referência e do relatório da mesma revisão.
 - Redução do destaque visual da similaridade, sem alteração do valor exibido ou da ordem calculada pelo mecanismo.
 - Posição da parte definida como **Ainda não definida** quando o usuário não abre ou não preenche o contexto adicional.
+- Publicação no Streamlit Community Cloud, abertura do endereço público e atualização automática após envio ao GitHub.
+- Login e saída com Google no endereço público, com o público OAuth definido como externo e em produção.
+- Abertura pública da Política de Privacidade e dos Termos de Uso no mesmo domínio do aplicativo.
 
-Essas verificações cobrem exemplos específicos, não todos os arquivos ou cenários. Permanecem pendentes avaliações mais amplas com documentos variados, documentos longos e layouts complexos, conferência sistemática dos links, acessibilidade, interface em diferentes dispositivos, nova conferência da autenticação após mudanças e hospedagem pública.
+Essas verificações cobrem exemplos específicos, não todos os arquivos ou cenários. Permanecem pendentes avaliações mais amplas com documentos variados, documentos longos e layouts complexos, conferência sistemática dos links, acessibilidade, interface em diferentes dispositivos e confirmação do login público por uma segunda conta independente.
 
 ## Limites de arquivos e processamento
 
@@ -289,9 +293,9 @@ Os limites protegem o processamento do protótipo. Um arquivo aceito pelo compon
 
 A comparação atual não depende de uma API externa de IA e não inclui gravação deliberada dos documentos em banco de dados ou na base de jurisprudências. O aplicativo mantém entradas, texto preparado e resultados no estado da sessão durante o uso, sem cache global compartilhado para a preparação do documento. Isso não constitui garantia de eliminação imediata de todos os dados ou uma auditoria de segurança.
 
-O login envolve comunicação com o Google para autenticação e uso das informações de identidade disponibilizadas, como o nome para a saudação. Não é um cadastro com senha própria do ConfereJus. O login implementado não envia deliberadamente o conteúdo do documento ao Google como parte da análise, nem salva documentos em um perfil persistente. A autenticação utiliza cookies e deve ser considerada na revisão de privacidade antes da publicação.
+O login envolve comunicação com o Google para autenticação e uso das informações de identidade disponibilizadas, como o nome para a saudação. Não é um cadastro com senha própria do ConfereJus. O login implementado não envia deliberadamente o conteúdo do documento ao Google como parte da análise, nem salva documentos em um perfil persistente. A autenticação utiliza cookies e suas informações essenciais estão descritas na Política de Privacidade pública.
 
-Após a publicação, o processamento ocorrerá na infraestrutura da hospedagem. Antes de receber material confidencial, será necessário verificar configurações, políticas, retenção e controles aplicáveis. **Nesta fase, utilize materiais fictícios, públicos ou devidamente anonimizados.**
+Na versão pública, o processamento ocorre na infraestrutura da hospedagem. O protótipo não foi preparado para receber material confidencial. **Nesta fase, utilize materiais fictícios, públicos ou devidamente anonimizados.** Consulte também a [Política de Privacidade](https://conferejus.streamlit.app/?pagina=privacidade) e os [Termos de Uso](https://conferejus.streamlit.app/?pagina=termos).
 
 Não envie documentos de clientes, dados pessoais ou arquivos confidenciais ao repositório público. Backups locais e a pasta Downloads não fazem parte dos arquivos que devem ser publicados. Nunca inclua senhas, tokens, chaves ou o arquivo `.streamlit/secrets.toml` no GitHub. O `.gitignore` não remove credenciais que já tenham sido versionadas anteriormente.
 
@@ -313,7 +317,7 @@ O arquivo `pyproject.toml` declara as dependências. O arquivo `uv.lock` registr
 
 | Arquivo ou pasta | Função |
 | --- | --- |
-| `app.py` | Interface, login opcional, prévia, definição do assunto, contexto adicional, entrada de documentos e resultados organizados em abas. |
+| `app.py` | Interface, login opcional, páginas de privacidade e termos, prévia, definição do assunto, contexto adicional, entrada de documentos e resultados organizados em abas. |
 | `src/conferejus/analise.py` | Extração e preparação do texto, sugestão de assunto, carregamento da base, segmentação, comparação e conferência local de referências. |
 | `src/conferejus/relatorio.py` | Geração do relatório da revisão em Word, em memória. |
 | `data/jurisprudencias.csv` | Acervo ativo de jurisprudências. |
@@ -337,13 +341,14 @@ O arquivo `pyproject.toml` declara as dependências. O arquivo `uv.lock` registr
 - Ampliar e validar as regras de sugestão de assunto com documentos variados, sem tratar indicadores textuais como interpretação jurídica automática.
 - Ampliar e validar as regras de uso do objetivo e do contexto, incluindo a limitação observada com “mantida integralmente”, negações e pedidos ambíguos.
 - Ampliar os formatos reconhecidos na conferência local de referências, hoje restrita a REsp e AREsp, com AgInt, AgRg e EDcl nas formas suportadas. A ausência de correspondência na base não significa falsidade.
-- Entrada de áudio com transcrição editável e confirmação do usuário, com teste de viabilidade na hospedagem.
 - Preferências individuais vinculadas à conta e armazenamento adequado, sem pressupor armazenamento de documentos.
-- Hospedagem pública, configuração do login no endereço público e testes com outras contas e dispositivos.
+- Testes manuais adicionais da versão pública com outras contas, navegadores, tamanhos de tela e documentos variados.
 - Documentação específica do uso de IA e definição da licença de distribuição.
 - Melhorias na experiência de uso, acessibilidade, contraste, apresentação dos resultados e revisão das escritas do site e do GitHub.
 
 Doutrinas e eventuais parcerias editoriais são possibilidades futuras. Não integram a base ou as funcionalidades atuais.
+
+A entrada por áudio não integra o planejamento desta versão. A decisão evita ampliar a coleta de dados, as dependências e a complexidade da interface sem evidência de ganho suficiente para a tarefa principal.
 
 ## Desenvolvimento e autoria
 
