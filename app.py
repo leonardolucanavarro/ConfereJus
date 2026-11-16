@@ -53,6 +53,49 @@ def mostrar_referencias(referencias, erro=""):
             st.caption(referencia["aviso"])
 
 
+def mostrar_pagina_legal(pagina):
+    """Exibe informacoes publicas exigidas para o uso opcional do login."""
+    st.markdown('<p class="brand-name">ConfereJus</p><div class="eyebrow">DISPUTAS CONTRATUAIS EMPRESARIAIS</div>', unsafe_allow_html=True)
+    st.divider()
+    if pagina == "privacidade":
+        st.title("Política de Privacidade")
+        st.caption("Última atualização: 16 de novembro de 2026")
+        st.write("O ConfereJus é um protótipo acadêmico de apoio à revisão de fundamentos contratuais. Esta política explica quais dados podem ser tratados durante o uso do aplicativo.")
+        st.subheader("1. Uso sem conta")
+        st.write("A análise pode ser utilizada sem login. O acesso com Google é opcional e serve apenas para identificar o usuário durante a sessão.")
+        st.subheader("2. Dados tratados")
+        st.write("Quando o login é utilizado, o aplicativo recebe do Google informações básicas de identidade, como nome e endereço de e-mail. O ConfereJus não solicita acesso ao Gmail, Google Drive, contatos ou outros arquivos da conta.")
+        st.write("Documentos enviados ou textos colados são processados para realizar a comparação solicitada. O projeto não mantém banco de dados próprio para armazenar documentos, resultados ou credenciais. O relatório é gerado em memória para download pelo usuário.")
+        st.subheader("3. Finalidade e cautelas")
+        st.write("Os dados são utilizados somente para disponibilizar a sessão, processar a revisão solicitada e gerar o relatório. Utilize material fictício, público ou devidamente anonimizado. Não envie documentos confidenciais, dados pessoais desnecessários ou informações protegidas por sigilo.")
+        st.subheader("4. Serviços de terceiros")
+        st.write("O aplicativo é hospedado no Streamlit Community Cloud e o login opcional utiliza o Google OpenID Connect. Esses serviços podem tratar dados técnicos e cookies conforme suas próprias políticas.")
+        st.subheader("5. Retenção e compartilhamento")
+        st.write("O ConfereJus não vende dados e não compartilha o conteúdo analisado para fins comerciais. O projeto não mantém cópia permanente dos documentos em banco próprio. Dados técnicos eventualmente mantidos pela hospedagem ou pelo provedor de login seguem as regras desses serviços.")
+        st.subheader("6. Escolhas do usuário")
+        st.write("Você pode usar a análise sem entrar em uma conta, encerrar a sessão pelo botão de saída e deixar de enviar qualquer documento. Para dúvidas sobre privacidade ou autenticação, utilize o e-mail de suporte informado na tela de consentimento do Google.")
+        st.info("Este protótipo não substitui revisão jurídica profissional e não deve receber material sigiloso.")
+    else:
+        st.title("Termos de Uso")
+        st.caption("Última atualização: 16 de novembro de 2026")
+        st.write("Ao utilizar o ConfereJus, você concorda com estes termos aplicáveis ao protótipo acadêmico.")
+        st.subheader("1. Finalidade")
+        st.write("O ConfereJus apresenta correspondências textuais entre o material enviado e uma base local selecionada de decisões. O serviço tem finalidade acadêmica e demonstrativa.")
+        st.subheader("2. Ausência de parecer jurídico")
+        st.write("Os resultados, classificações e percentuais não representam probabilidade de êxito, aplicabilidade de precedente, veracidade de citação ou aconselhamento jurídico. Toda fonte deve ser conferida em seu inteiro teor.")
+        st.subheader("3. Responsabilidade pelo material")
+        st.write("O usuário deve possuir autorização para utilizar o conteúdo enviado e deve evitar dados pessoais, documentos confidenciais ou informações protegidas por sigilo. Recomenda-se o uso de material fictício, público ou anonimizado.")
+        st.subheader("4. Disponibilidade e limitações")
+        st.write("O protótipo pode apresentar falhas, indisponibilidade ou resultados incompletos. Não há garantia de cobertura integral da jurisprudência, reconhecimento de todas as citações ou adequação a uma finalidade profissional específica.")
+        st.subheader("5. Fontes externas")
+        st.write("Links para tribunais e serviços de terceiros são fornecidos para conferência. O ConfereJus não controla a disponibilidade nem o conteúdo desses sites.")
+        st.subheader("6. Uso adequado")
+        st.write("Não utilize o aplicativo para atividades ilícitas, para expor dados de terceiros sem autorização ou como substituto da avaliação de profissional qualificado.")
+    st.divider()
+    st.link_button("↩️ Voltar ao ConfereJus", "https://conferejus.streamlit.app/")
+    st.caption("ConfereJus · Protótipo acadêmico em desenvolvimento")
+
+
 st.set_page_config(page_title="ConfereJus | Disputas contratuais", layout="wide")
 
 st.markdown("""
@@ -124,6 +167,12 @@ st.markdown("""
 }
 </style>
 """, unsafe_allow_html=True)
+
+pagina_publica = st.query_params.get("pagina", "")
+if pagina_publica in {"privacidade", "termos"}:
+    mostrar_pagina_legal(pagina_publica)
+    st.stop()
+
 if "is_logged_in" in st.user:
     if st.user["is_logged_in"]:
         st.write("Olá,", st.user.get("name", "usuário"))
@@ -400,3 +449,4 @@ if revisao:
 
 st.divider()
 st.caption("ConfereJus · Protótipo acadêmico em desenvolvimento · Revisão profissional indispensável.")
+st.markdown("[Política de Privacidade](?pagina=privacidade) · [Termos de Uso](?pagina=termos)")
